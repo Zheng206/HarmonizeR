@@ -3,6 +3,7 @@
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/Zheng206/HarmonizeR/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Zheng206/HarmonizeR/actions/workflows/R-CMD-check.yaml)
 [![test-coverage](https://github.com/Zheng206/HarmonizeR/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/Zheng206/HarmonizeR/actions/workflows/test-coverage.yaml)
+[![Codecov test coverage](https://codecov.io/gh/Zheng206/HarmonizeR/graph/badge.svg)](https://app.codecov.io/gh/Zheng206/HarmonizeR)
 <!-- badges: end -->
 
 `HarmonizeR` is an R package that provides an interactive Shiny interface for diagnostic-driven neuroimaging harmonization. It is designed for multi-site imaging studies where technical variation from sites, scanners, acquisition protocols, or other batch variables may obscure biological effects of interest.
