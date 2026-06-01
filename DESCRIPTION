@@ -42,5 +42,7 @@ Suggests:
     randomForest,
     pROC,
     testthat (>= 3.0.0)
+Remotes:
+    Zheng206/MultiComBat
 Additional_repositories: https://mc-stan.org/r-packages/
 Config/testthat/edition: 3
