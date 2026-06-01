@@ -1,0 +1,46 @@
+Package: HarmonizeR
+Type: Package
+Title: Interactive Multi-Metric Batch Diagnostics and Harmonization
+Version: 0.1.0.9000
+Authors@R: person(given = "Zheng", family = "Ren", email = "zren1422@gmail.com", role = c("aut", "cre"))
+Description: Provides a Shiny application for interactive batch-effect diagnostics, empirical-Bayes and Bayesian MCMC ComBat-style harmonization, covariance diagnostics, and post-harmonization evaluation for cross-sectional and longitudinal multi-metric data. Also includes lightweight utilities for simulating demo data and repairing Bayesian MCMC light-upload objects.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends:
+    R (>= 4.1.0)
+Suggests:
+    remotes,
+    shiny,
+    shinydashboard,
+    shinyWidgets,
+    DT,
+    ggplot2,
+    dplyr,
+    tidyr,
+    magrittr,
+    purrr,
+    broom,
+    car,
+    mgcv,
+    lme4,
+    MASS,
+    MCMCpack,
+    tibble,
+    scales,
+    plotly,
+    ggrepel,
+    openxlsx,
+    posterior,
+    patchwork,
+    zip,
+    cmdstanr,
+    MultiComBat,
+    caret,
+    randomForest,
+    pROC,
+    testthat (>= 3.0.0)
+Additional_repositories: https://mc-stan.org/r-packages/
+Config/testthat/edition: 3
