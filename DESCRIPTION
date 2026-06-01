@@ -36,7 +36,6 @@ Suggests:
     posterior,
     patchwork,
     zip,
-    cmdstanr,
     MultiComBat,
     caret,
     randomForest,
