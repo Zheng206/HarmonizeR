@@ -1,6 +1,8 @@
 # HarmonizeR
 
 <!-- badges: start -->
+[![R-CMD-check](https://github.com/Zheng206/HarmonizeR/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Zheng206/HarmonizeR/actions/workflows/R-CMD-check.yaml)
+[![test-coverage](https://github.com/Zheng206/HarmonizeR/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/Zheng206/HarmonizeR/actions/workflows/test-coverage.yaml)
 <!-- badges: end -->
 
 `HarmonizeR` is an R package that provides an interactive Shiny interface for diagnostic-driven neuroimaging harmonization. It is designed for multi-site imaging studies where technical variation from sites, scanners, acquisition protocols, or other batch variables may obscure biological effects of interest.
@@ -25,7 +27,7 @@ You can install `HarmonizeR` directly from GitHub:
 
 ```r
 install.packages("remotes")
-remotes::install_github("your-github-username/HarmonizeR")
+remotes::install_github("Zheng206/HarmonizeR")
 ```
 
 ## Installing app dependencies
