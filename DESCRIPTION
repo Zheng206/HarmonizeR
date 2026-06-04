@@ -12,6 +12,7 @@ RoxygenNote: 7.3.2
 Depends:
     R (>= 4.1.0)
 Suggests:
+    remotes,
     shiny (>= 1.8.0),
     shinydashboard,
     shinyWidgets,

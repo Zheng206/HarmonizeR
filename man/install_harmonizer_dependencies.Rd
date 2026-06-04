@@ -2,7 +2,7 @@
 % Please edit documentation in R/dependencies.R
 \name{install_harmonizer_dependencies}
 \alias{install_harmonizer_dependencies}
-\title{Install HarmonizeR app dependencies}
+\title{Install HarmonizeR app dependencies safely}
 \usage{
 install_harmonizer_dependencies(
   include_mcmc = FALSE,
@@ -12,37 +12,17 @@ install_harmonizer_dependencies(
 )
 }
 \arguments{
-\item{include_mcmc}{Logical. If \code{TRUE}, also install \code{cmdstanr} from the Stan
-R package repository. This does not install CmdStan itself; after installing
-\code{cmdstanr}, run \code{cmdstanr::install_cmdstan()} if CmdStan is not already
-installed.}
+\item{include_mcmc}{Logical. If TRUE, install cmdstanr.}
 
-\item{include_multicombat}{Logical. If \code{TRUE}, include \code{MultiComBat} in the
-dependency check and installation list. Set to \code{FALSE} if you have already
-installed \code{MultiComBat} from a local or development source.}
+\item{include_multicombat}{Logical. If TRUE, install MultiComBat from GitHub.}
 
-\item{dry_run}{Logical. If \code{TRUE}, do not install anything. Instead, return a
-character vector of missing packages that would be installed.}
+\item{dry_run}{Logical. If TRUE, do not install; just return missing packages.}
 
-\item{quiet}{Logical. If \code{TRUE}, suppress informational messages.}
+\item{quiet}{Logical. If TRUE, suppress messages.}
 }
 \value{
-Invisibly returns a character vector of packages that were missing at
-the time the function was called. With \code{dry_run = TRUE}, the vector is
-returned visibly.
+Invisibly returns a character vector of packages that were missing or outdated.
 }
 \description{
-Installs packages needed to run the full HarmonizeR Shiny application. The
-core package keeps many user-interface and modeling packages in \code{Suggests}
-so that HarmonizeR remains lightweight and easier to check. This helper gives
-users a single command for installing the packages required by the app.
-}
-\examples{
-\dontrun{
-install_harmonizer_dependencies()
-install_harmonizer_dependencies(include_mcmc = TRUE)
-}
-
-# Check what is missing without installing anything
-install_harmonizer_dependencies(dry_run = TRUE)
+Installs packages needed to run the full HarmonizeR Shiny application.
 }

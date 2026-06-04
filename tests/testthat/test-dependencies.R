@@ -19,7 +19,7 @@ test_that("install_harmonizer_dependencies can exclude optional MCMC and MultiCo
   expect_false("MultiComBat" %in% deps)
 })
 
-test_that("install_harmonizer_dependencies includes optional package checks when requested", {
+test_that("install_harmonizer_dependencies optional flags preserve base dependency set", {
   deps_base <- install_harmonizer_dependencies(
     include_mcmc = FALSE,
     include_multicombat = FALSE,
@@ -56,7 +56,7 @@ test_that("install_harmonizer_dependencies dry run is stable across repeated cal
   expect_identical(deps_1, deps_2)
 })
 
-test_that("install_harmonizer_dependencies dry run returns known app dependency names", {
+test_that("install_harmonizer_dependencies dry run returns only known app dependency names", {
   deps <- install_harmonizer_dependencies(
     include_mcmc = FALSE,
     include_multicombat = FALSE,
@@ -75,7 +75,7 @@ test_that("install_harmonizer_dependencies dry run returns known app dependency 
   expect_true(all(deps %in% expected_pkgs))
 })
 
-test_that("install_harmonizer_dependencies dry run can include optional dependency names", {
+test_that("install_harmonizer_dependencies dry run returns only known dependency names with optional packages", {
   deps <- install_harmonizer_dependencies(
     include_mcmc = TRUE,
     include_multicombat = TRUE,
