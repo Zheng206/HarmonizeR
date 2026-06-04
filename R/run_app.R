@@ -26,13 +26,38 @@ run_harmonizer <- function(...) {
   required <- c(
     "shiny", "shinydashboard", "shinyWidgets", "DT", "ggplot2",
     "dplyr", "tidyr", "magrittr", "purrr", "broom", "car",
-    "mgcv", "lme4", "MASS", "MCMCpack", "tibble", "scales",
-    "plotly", "ggrepel", "openxlsx", "posterior", "MultiComBat",
+    "mgcv", "lme4", "MASS", "MCMCpack", "tibble", "scales", "RColorBrewer",
+    "plotly", "htmlwidgets", "ggrepel", "openxlsx", "posterior", "MultiComBat",
     "caret", "randomForest", "pROC"
   )
 
   missing <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)]
 
+
+
+  min_versions <- c(
+    shiny = "1.8.0",
+    ggplot2 = "3.5.0",
+    scales = "1.3.0",
+    plotly = "4.10.0",
+    htmlwidgets = "1.6.0",
+    RColorBrewer = "1.1.3"
+  )
+  outdated <- names(min_versions)[vapply(names(min_versions), function(pkg) {
+    requireNamespace(pkg, quietly = TRUE) &&
+      utils::compareVersion(as.character(utils::packageVersion(pkg)), min_versions[[pkg]]) < 0
+  }, logical(1))]
+  if (length(outdated) > 0) {
+    stop(
+      paste0(
+        "The HarmonizeR app requires newer visualization dependencies. Please update: ",
+        paste(sprintf("%s (>= %s)", outdated, min_versions[outdated]), collapse = ", "),
+        ".
+Run HarmonizeR::install_harmonizer_dependencies(), restart R, and try again."
+      ),
+      call. = FALSE
+    )
+  }
   if (length(missing) > 0) {
     stop(
       paste0(

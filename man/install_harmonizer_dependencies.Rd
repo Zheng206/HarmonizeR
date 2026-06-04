@@ -18,10 +18,8 @@ R package repository. This does not install CmdStan itself; after installing
 installed.}
 
 \item{include_multicombat}{Logical. If \code{TRUE}, include \code{MultiComBat} in the
-dependency check and install it from GitHub using
-\code{remotes::install_github("Zheng206/MultiComBat")} if it is missing.
-Set to \code{FALSE} if you have already installed \code{MultiComBat} from a local or
-development source.}
+dependency check and installation list. Set to \code{FALSE} if you have already
+installed \code{MultiComBat} from a local or development source.}
 
 \item{dry_run}{Logical. If \code{TRUE}, do not install anything. Instead, return a
 character vector of missing packages that would be installed.}

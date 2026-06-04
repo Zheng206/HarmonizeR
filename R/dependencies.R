@@ -10,10 +10,8 @@
 #'   `cmdstanr`, run `cmdstanr::install_cmdstan()` if CmdStan is not already
 #'   installed.
 #' @param include_multicombat Logical. If `TRUE`, include `MultiComBat` in the
-#'   dependency check and install it from GitHub using
-#'   `remotes::install_github("Zheng206/MultiComBat")` if it is missing.
-#'   Set to `FALSE` if you have already installed `MultiComBat` from a local or
-#'   development source.
+#'   dependency check and installation list. Set to `FALSE` if you have already
+#'   installed `MultiComBat` from a local or development source.
 #' @param dry_run Logical. If `TRUE`, do not install anything. Instead, return a
 #'   character vector of missing packages that would be installed.
 #' @param quiet Logical. If `TRUE`, suppress informational messages.
@@ -35,78 +33,70 @@ install_harmonizer_dependencies <- function(include_mcmc = FALSE,
                                             include_multicombat = TRUE,
                                             dry_run = FALSE,
                                             quiet = FALSE) {
-  cran_pkgs <- c(
+  app_pkgs <- c(
     "shiny", "shinydashboard", "shinyWidgets", "DT",
     "ggplot2", "dplyr", "tidyr", "magrittr", "purrr", "broom",
-    "car", "mgcv", "lme4", "MASS", "MCMCpack", "tibble", "scales",
-    "plotly", "ggrepel", "openxlsx", "posterior", "patchwork", "zip",
+    "car", "mgcv", "lme4", "MASS", "MCMCpack", "tibble", "scales", "RColorBrewer",
+    "plotly", "htmlwidgets", "ggrepel", "openxlsx", "posterior", "patchwork", "zip",
     "caret", "randomForest", "pROC"
   )
-  
-  if (isTRUE(include_mcmc)) {
-    cran_pkgs <- unique(c(cran_pkgs, "cmdstanr"))
-  }
-  
-  github_pkgs <- character(0)
-  
+
+  min_versions <- c(
+    shiny = "1.8.0",
+    ggplot2 = "3.5.0",
+    scales = "1.3.0",
+    plotly = "4.10.0",
+    htmlwidgets = "1.6.0",
+    RColorBrewer = "1.1.3"
+  )
+
   if (isTRUE(include_multicombat)) {
-    github_pkgs <- c(github_pkgs, "MultiComBat")
+    app_pkgs <- unique(c(app_pkgs, "MultiComBat"))
   }
-  
-  missing_cran <- cran_pkgs[
-    !vapply(cran_pkgs, requireNamespace, logical(1), quietly = TRUE)
-  ]
-  
-  missing_github <- github_pkgs[
-    !vapply(github_pkgs, requireNamespace, logical(1), quietly = TRUE)
-  ]
-  
-  missing <- c(missing_cran, missing_github)
-  
+
+  if (isTRUE(include_mcmc)) {
+    app_pkgs <- unique(c(app_pkgs, "cmdstanr"))
+  }
+
+  missing <- app_pkgs[!vapply(app_pkgs, requireNamespace, logical(1), quietly = TRUE)]
+
+  installed_min <- intersect(names(min_versions), app_pkgs)
+  outdated <- installed_min[vapply(installed_min, function(pkg) {
+    if (!requireNamespace(pkg, quietly = TRUE)) return(FALSE)
+    utils::compareVersion(as.character(utils::packageVersion(pkg)), min_versions[[pkg]]) < 0
+  }, logical(1))]
+  to_install <- unique(c(missing, outdated))
+
   if (isTRUE(dry_run)) {
     if (!quiet) {
-      if (length(missing) == 0) {
-        message("All requested HarmonizeR dependencies are already installed.")
+      if (length(to_install) == 0) {
+        message("All requested HarmonizeR dependencies are already installed with compatible versions.")
       } else {
-        message("Missing packages: ", paste(missing, collapse = ", "))
+        message("Packages to install/update: ", paste(to_install, collapse = ", "))
       }
     }
-    
-    return(missing)
+    return(to_install)
   }
-  
-  if (length(missing) == 0) {
-    if (!quiet) {
-      message("All requested HarmonizeR dependencies are already installed.")
-    }
-    
-    return(invisible(missing))
+
+  if (length(to_install) == 0) {
+    if (!quiet) message("All requested HarmonizeR dependencies are already installed with compatible versions.")
+    return(invisible(to_install))
   }
-  
-  stan_pkgs <- intersect(missing_cran, "cmdstanr")
-  regular_cran_pkgs <- setdiff(missing_cran, "cmdstanr")
-  
-  if (length(regular_cran_pkgs) > 0) {
-    if (!quiet) {
-      message("Installing CRAN packages: ", paste(regular_cran_pkgs, collapse = ", "))
-    }
-    
-    utils::install.packages(regular_cran_pkgs)
+
+  stan_pkgs <- intersect(to_install, "cmdstanr")
+  cran_pkgs <- setdiff(to_install, "cmdstanr")
+
+  if (length(cran_pkgs) > 0) {
+    if (!quiet) message("Installing packages: ", paste(cran_pkgs, collapse = ", "))
+    utils::install.packages(cran_pkgs)
   }
-  
+
   if (length(stan_pkgs) > 0) {
-    if (!quiet) {
-      message("Installing cmdstanr from the Stan R package repository.")
-    }
-    
+    if (!quiet) message("Installing cmdstanr from the Stan R package repository.")
     utils::install.packages(
       "cmdstanr",
-      repos = c(
-        "https://mc-stan.org/r-packages/",
-        getOption("repos")
-      )
+      repos = c("https://mc-stan.org/r-packages/", getOption("repos"))
     )
-    
     if (!quiet) {
       message(
         "cmdstanr is installed. If CmdStan is not installed, run: ",
@@ -114,22 +104,6 @@ install_harmonizer_dependencies <- function(include_mcmc = FALSE,
       )
     }
   }
-  
-  if ("MultiComBat" %in% missing_github) {
-    if (!requireNamespace("remotes", quietly = TRUE)) {
-      if (!quiet) {
-        message("Installing remotes because it is needed to install MultiComBat from GitHub.")
-      }
-      
-      utils::install.packages("remotes")
-    }
-    
-    if (!quiet) {
-      message("Installing MultiComBat from GitHub: Zheng206/MultiComBat")
-    }
-    
-    remotes::install_github("Zheng206/MultiComBat")
-  }
-  
-  invisible(missing)
+
+  invisible(to_install)
 }

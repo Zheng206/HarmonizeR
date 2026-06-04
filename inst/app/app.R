@@ -274,7 +274,7 @@ ui <- dashboardPage(
               ),
               fluidRow(
                 tabBox(title = "Results", width = 12,
-                       tabPanel("PCA", plotOutput("pre_pca", height = "700px")),
+                       tabPanel("PCA", plotOutput("pre_pca", height = "auto")),
                        tabPanel("Residual Boxplots",
                                 fluidRow(
                                   column(3, uiOutput("pre_feat_ui")),
@@ -571,9 +571,9 @@ ui <- dashboardPage(
                        tabPanel("PCA Comparison",
                                 fluidRow(
                                   column(6, tags$div(class = "sec-hdr", "Before"),
-                                         plotOutput("post_pca_before", height = "620px")),
+                                         plotOutput("post_pca_before", height = "auto")),
                                   column(6, tags$div(class = "sec-hdr", "After"),
-                                         plotOutput("post_pca_after", height = "620px"))
+                                         plotOutput("post_pca_after", height = "auto"))
                                 )
                        ),
                        tabPanel("Test Comparison",
@@ -1325,9 +1325,223 @@ server <- function(input, output, session) {
   # row names may be saved as an extra first column such as SUB001_V1.
   safe_positive_int <- function(x, default = 1L, min_val = 1L, max_val = Inf) {
     out <- suppressWarnings(as.integer(x))
+    out <- out[1]
     if (length(out) == 0 || is.na(out) || out < min_val) out <- default
     if (is.finite(max_val)) out <- min(out, max_val)
-    out
+    as.integer(out)
+  }
+  
+  valid_positive_int <- function(x, min_val = 1L, max_val = Inf) {
+    out <- suppressWarnings(as.integer(x))
+    out <- out[1]
+    length(out) == 1L && !is.na(out) && out >= min_val &&
+      (!is.finite(max_val) || out <= max_val)
+  }
+  
+  clean_batch_for_plot <- function(x) {
+    x <- trimws(as.character(x))
+    x[x %in% c("", "NA", "N/A", "NULL", "null", "NaN", "nan")] <- NA_character_
+    factor(x, levels = unique(x[!is.na(x)]))
+  }
+  
+  safe_discrete_palette <- function(levels_or_n, palette = "Dark 3") {
+    if (length(levels_or_n) == 1L && is.numeric(levels_or_n)) {
+      n <- as.integer(levels_or_n)
+      lev <- NULL
+    } else {
+      lev <- as.character(levels_or_n)
+      n <- length(lev)
+    }
+    n <- max(1L, n)
+    cols <- tryCatch(
+      grDevices::hcl.colors(n, palette = palette),
+      error = function(e) grDevices::rainbow(n)
+    )
+    cols[!nzchar(cols) | is.na(cols)] <- "#666666"
+    # Final guard: make sure all colors are valid before they reach ggplot/plotly.
+    ok <- tryCatch({ grDevices::col2rgb(cols); TRUE }, error = function(e) FALSE)
+    if (!ok) cols <- grDevices::rainbow(n)
+    if (!is.null(lev)) stats::setNames(cols, lev) else cols
+  }
+  
+  safe_m_value <- function(m) {
+    if (!valid_positive_int(m, min_val = 1L)) return(NULL)
+    as.integer(m)
+  }
+
+  pca_equal_axes_default <- function(pca_prep_result, type = "within") {
+    !(("F_list" %in% names(pca_prep_result)) && identical(type, "within"))
+  }
+
+  pca_ncol_facets <- function(m) {
+    m <- suppressWarnings(as.integer(m))[1]
+    if (length(m) == 0L || is.na(m) || m <= 1L) return(1L)
+    if (m <= 2L) return(m)
+    if (m <= 4L) return(2L)
+    3L
+  }
+
+  pca_legend_rows <- function(n_batch) {
+    n_batch <- suppressWarnings(as.integer(n_batch))[1]
+    if (length(n_batch) == 0L || is.na(n_batch) || n_batch <= 8L) return(1L)
+    if (n_batch <= 16L) return(2L)
+    3L
+  }
+
+  pca_plot_height_px <- function(pca_prep_result, type = "within", compare_mode = FALSE) {
+    base_height <- if (compare_mode) 520L else 560L
+    if (is.null(pca_prep_result)) return(base_height)
+
+    if (("F_list" %in% names(pca_prep_result)) && identical(type, "within")) {
+      m <- length(pca_prep_result$F_list)
+      ncol_facets <- pca_ncol_facets(m)
+      nrow_facets <- max(1L, ceiling(m / ncol_facets))
+      row_height  <- if (compare_mode) 260L else 240L
+      legend_pad  <- 80L
+      return(max(base_height, as.integer(nrow_facets * row_height + legend_pad)))
+    }
+
+    base_height
+  }
+
+  can_draw_ellipse_by_group <- function(df, group_var = "bat", facet_var = NULL) {
+    if (is.null(df) || !nrow(df) || !group_var %in% names(df)) return(FALSE)
+    d <- df[!is.na(df[[group_var]]), , drop = FALSE]
+    if (!nrow(d)) return(FALSE)
+
+    enough_for_one <- function(x) {
+      tab <- table(x)
+      length(tab) > 0L && all(tab >= 3L)
+    }
+
+    if (!is.null(facet_var) && facet_var %in% names(d)) {
+      splits <- split(seq_len(nrow(d)), d[[facet_var]], drop = TRUE)
+      if (!length(splits)) return(FALSE)
+      all(vapply(splits, function(ix) enough_for_one(d[[group_var]][ix]), logical(1)))
+    } else {
+      enough_for_one(d[[group_var]])
+    }
+  }
+
+  pca_plot_robust <- function(pca_prep_result,
+                              type = "within",
+                              pc_1 = 1,
+                              pc_2 = 2,
+                              ellipse = TRUE,
+                              equal_axes = NULL) {
+    pc_pair <- paste0("PC", c(pc_1, pc_2))
+    element_names <- names(pca_prep_result)
+    if (is.null(equal_axes)) equal_axes <- pca_equal_axes_default(pca_prep_result, type)
+
+    base_pca_theme <- theme_minimal(base_size = 12) +
+      theme(
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2),
+        strip.text = element_text(face = "bold"),
+        strip.background = element_rect(fill = "grey95", color = NA),
+        legend.position = "bottom",
+        legend.box = "vertical",
+        legend.key.size = grid::unit(4, "mm"),
+        legend.title = element_text(face = "bold", size = 9),
+        legend.text = element_text(size = 8),
+        plot.title.position = "plot",
+        panel.spacing = grid::unit(6, "pt"),
+        axis.title = element_text(face = "bold")
+      )
+
+    prep_pca_df <- function(df) {
+      validate(
+        need(all(pc_pair %in% colnames(df)), "Selected PCs are not available."),
+        need(nrow(df) > 0, "No PCA scores are available for plotting.")
+      )
+
+      for (nm in pc_pair) df[[nm]] <- suppressWarnings(as.numeric(df[[nm]]))
+      df$bat <- clean_batch_for_plot(df$bat)
+      df <- df[is.finite(df[[pc_pair[1]]]) & is.finite(df[[pc_pair[2]]]) & !is.na(df$bat), , drop = FALSE]
+      validate(need(nrow(df) > 0, "No valid PCA points are available after filtering."))
+      df$bat <- droplevels(df$bat)
+
+      batch_cols <- safe_discrete_palette(levels(df$bat))
+      legend_rows <- pca_legend_rows(nlevels(df$bat))
+
+      list(
+        df = df,
+        scale = scale_color_manual(values = batch_cols, name = "Batch / Site"),
+        guides = guides(color = guide_legend(
+          nrow = legend_rows,
+          byrow = TRUE,
+          override.aes = list(size = 2.5, alpha = 1)
+        ))
+      )
+    }
+
+    add_optional_ellipse <- function(plt, df, ellipse, facet_var = NULL) {
+      if (isTRUE(ellipse) && can_draw_ellipse_by_group(df, group_var = "bat", facet_var = facet_var)) {
+        plt + stat_ellipse(level = 0.68, linewidth = 0.6, show.legend = FALSE)
+      } else {
+        plt
+      }
+    }
+
+    if ("F_list" %in% element_names) {
+      if (type == "within") {
+        m <- length(pca_prep_result$F_list)
+        ncol_facets <- pca_ncol_facets(m)
+        F_df_con <- lapply(seq_len(m), function(i) {
+          pca_prep_result$F_list[[i]] %>%
+            data.frame() %>%
+            mutate(measurement = factor(paste0("M_", i), levels = paste0("M_", seq_len(m))),
+                   bat = pca_prep_result$bat[[i]])
+        }) %>%
+          bind_rows() %>%
+          dplyr::select(dplyr::all_of(pc_pair), measurement, bat)
+
+        tmp <- prep_pca_df(F_df_con)
+        F_df_con <- tmp$df
+
+        plt <- ggplot(
+          F_df_con,
+          aes(x = .data[[pc_pair[1]]], y = .data[[pc_pair[2]]], color = bat)
+        ) +
+          geom_point(alpha = 0.7, size = 1.6, stroke = 0) +
+          facet_wrap(~ measurement, ncol = ncol_facets, scales = "fixed") +
+          labs(x = pc_pair[1], y = pc_pair[2], color = "Batch / Site") +
+          tmp$scale + tmp$guides + base_pca_theme
+
+        if (isTRUE(equal_axes)) plt <- plt + coord_equal()
+        add_optional_ellipse(plt, F_df_con, ellipse, facet_var = "measurement")
+      } else {
+        G_df <- pca_prep_result$G %>% data.frame() %>% mutate(bat = pca_prep_result$bat[[1]])
+        tmp <- prep_pca_df(G_df)
+        G_df <- tmp$df
+
+        plt <- ggplot(
+          G_df,
+          aes(x = .data[[pc_pair[1]]], y = .data[[pc_pair[2]]], color = bat)
+        ) +
+          geom_point(alpha = 0.7, size = 1.6, stroke = 0) +
+          labs(x = pc_pair[1], y = pc_pair[2], color = "Batch / Site") +
+          tmp$scale + tmp$guides + base_pca_theme
+
+        if (isTRUE(equal_axes)) plt <- plt + coord_equal()
+        add_optional_ellipse(plt, G_df, ellipse)
+      }
+    } else {
+      F_df <- pca_prep_result$F_t %>% data.frame() %>% mutate(bat = pca_prep_result$bat)
+      tmp <- prep_pca_df(F_df)
+      F_df <- tmp$df
+
+      plt <- ggplot(
+        F_df,
+        aes(x = .data[[pc_pair[1]]], y = .data[[pc_pair[2]]], color = bat)
+      ) +
+        geom_point(alpha = 0.7, size = 1.6, stroke = 0) +
+        labs(x = pc_pair[1], y = pc_pair[2], color = "Batch / Site") +
+        tmp$scale + tmp$guides + base_pca_theme
+
+      if (isTRUE(equal_axes)) plt <- plt + coord_equal()
+      add_optional_ellipse(plt, F_df, ellipse)
+    }
   }
   
   to_numeric_if_possible <- function(x, min_prop = 0.80) {
@@ -1520,8 +1734,9 @@ server <- function(input, output, session) {
   })
   
   output$mod_tags <- renderUI({
-    req(rv$m)
-    tags$div(lapply(seq_len(rv$m), function(i)
+    m <- safe_m_value(rv$m)
+    req(!is.null(m))
+    tags$div(lapply(seq_len(m), function(i)
       tags$span(class = "mod-tag", paste0("M", i))))
   })
   
@@ -1597,9 +1812,11 @@ server <- function(input, output, session) {
         data.frame(Batch = b, Visit = v, PropRetained = length(subjs_v)/max(n_total,1))
       }))
     }))
+    df_ret$Batch <- clean_batch_for_plot(df_ret$Batch)
+    batch_cols <- safe_discrete_palette(levels(df_ret$Batch))
     ggplot(df_ret, aes(x = Visit, y = PropRetained, color = Batch, group = Batch)) +
       geom_line(linewidth = 1.1) + geom_point(size = 2.5) +
-      scale_color_brewer(palette = "Set2") +
+      scale_color_manual(values = batch_cols) +
       scale_y_continuous(labels = percent_format(), limits = c(0, 1.05)) +
       scale_x_continuous(breaks = seq_len(max_v)) +
       labs(x = "Visit", y = "Proportion retained", title = "Retention") +
@@ -1617,16 +1834,19 @@ server <- function(input, output, session) {
   })
   
   output$batch_bar <- plotly::renderPlotly({
-    req(rv$bat_list)
-    df    <- as.data.frame(table(Batch = rv$bat_list[[1]]), stringsAsFactors = FALSE)
+    req(rv$bat_list, length(rv$bat_list) >= 1L, !is.null(rv$bat_list[[1]]))
+    bat <- clean_batch_for_plot(rv$bat_list[[1]])
+    bat <- bat[!is.na(bat)]
+    validate(need(length(bat) > 0, "No valid batch labels are available."))
+    df    <- as.data.frame(table(Batch = bat), stringsAsFactors = FALSE)
     n_bat <- nrow(df)
-    pal   <- RColorBrewer::brewer.pal(max(3, n_bat), "Set2")[seq_len(n_bat)]
+    pal   <- safe_discrete_palette(as.character(df$Batch))
     
     plotly::plot_ly(
-      df,
+      data = df,
       x = ~Batch, y = ~Freq,
       type = "bar",
-      marker = list(color = pal, line = list(color = "white", width = 1.2)),
+      marker = list(color = unname(pal), line = list(color = "white", width = 1.2)),
       text = ~Freq, textposition = "inside",
       hovertemplate = "<b>%{x}</b><br>Count: %{y}<extra></extra>"
     ) %>%
@@ -1685,9 +1905,10 @@ server <- function(input, output, session) {
                               xaxis = list(visible = FALSE), yaxis = list(visible = FALSE)))
     }
     
-    batches <- levels(droplevels(factor(bat_plot)))
+    bat_plot <- clean_batch_for_plot(bat_plot)
+    batches <- levels(droplevels(bat_plot))
     n_bat   <- length(batches)
-    pal     <- RColorBrewer::brewer.pal(max(3, n_bat), "Set2")[seq_len(n_bat)]
+    pal     <- safe_discrete_palette(batches)
     
     # Shared clean axis: no titles, no tick labels, no grid lines
     clean_axis <- list(
@@ -1737,7 +1958,7 @@ server <- function(input, output, session) {
         # Percentage stacked bar — each bar sums to 100%
         v_chr   <- as.character(v)
         cats    <- sort(unique(v_chr[!is.na(v_chr)]))
-        cat_pal <- RColorBrewer::brewer.pal(max(3, length(cats)), "Pastel1")[seq_along(cats)]
+        cat_pal <- safe_discrete_palette(cats, palette = "Pastel 1")
         
         # Pre-compute counts and totals per batch for percentage calculation
         count_mat <- sapply(batches, function(b)
@@ -1840,8 +2061,12 @@ server <- function(input, output, session) {
     cov <- rv$covar_list[[1]]; bat <- rv$bat_list[[1]]
     vname <- input$tv_covar_sel
     if (!vname %in% colnames(cov)) return(NULL)
-    df <- data.frame(value = cov[[vname]], Visit = factor(rv$visit_vec), Batch = bat,
+    df <- data.frame(value = suppressWarnings(as.numeric(cov[[vname]])),
+                     Visit = factor(rv$visit_vec), Batch = clean_batch_for_plot(bat),
                      Subject = rv$subid_vec %||% paste0("S", seq_len(rv$n)))
+    df <- df[is.finite(df$value) & !is.na(df$Batch), , drop = FALSE]
+    validate(need(nrow(df) > 0, "No valid observations are available for this covariate plot."))
+    batch_cols <- safe_discrete_palette(levels(droplevels(df$Batch)))
     if (input$tv_plot_type == "line") {
       sum_df <- df %>% group_by(Visit, Batch) %>%
         summarise(mean_val = mean(value, na.rm=TRUE),
@@ -1849,13 +2074,13 @@ server <- function(input, output, session) {
       ggplot(sum_df, aes(x=Visit, y=mean_val, color=Batch, group=Batch)) +
         geom_line(linewidth=1.1) + geom_point(size=2.5) +
         geom_errorbar(aes(ymin=mean_val-se, ymax=mean_val+se), width=0.15, linewidth=0.7) +
-        scale_color_brewer(palette="Set2") +
+        scale_color_manual(values=batch_cols) +
         labs(x="Visit", y=paste("Mean", vname), title=paste0(vname," — mean profile")) +
         bold_theme(12)
     } else if (input$tv_plot_type == "box") {
       ggplot(df, aes(x=Visit, y=value, fill=Batch)) +
         geom_boxplot(outlier.size=0.6, width=0.6, linewidth=0.4, position=position_dodge(0.8)) +
-        scale_fill_brewer(palette="Set2") +
+        scale_fill_manual(values=batch_cols) +
         labs(x="Visit", y=vname, title=paste0(vname," distribution by visit")) +
         bold_theme(12)
     } else {
@@ -1865,7 +2090,7 @@ server <- function(input, output, session) {
         geom_line(alpha=0.15, linewidth=0.5) +
         geom_line(data=sum_df, aes(x=Visit, y=mean_val, color=Batch, group=Batch),
                   linewidth=2, inherit.aes=FALSE) +
-        scale_color_brewer(palette="Set2") +
+        scale_color_manual(values=batch_cols) +
         labs(x="Visit", y=vname, title=paste0(vname," — spaghetti + batch mean"),
              subtitle="Thin = individual, thick = batch mean") +
         bold_theme(12)
@@ -1873,9 +2098,10 @@ server <- function(input, output, session) {
   }, bg = "white")
   
   output$prev_mod_ui <- renderUI({
-    req(rv$m)
+    m <- safe_m_value(rv$m)
+    req(!is.null(m))
     selectInput("prev_mod", NULL,
-                choices = setNames(seq_len(rv$m), paste0("Modality ", seq_len(rv$m))),
+                choices = setNames(seq_len(m), paste0("Modality ", seq_len(m))),
                 selected = 1, width = "140px")
   })
   
@@ -1938,8 +2164,8 @@ server <- function(input, output, session) {
     selectInput("trend_feat", "Feature (y-axis):", choices = rv$feat_names, selected = rv$feat_names[1])
   })
   output$trend_mod_ui <- renderUI({
-    req(rv$m)
-    m <- safe_positive_int(rv$m, default = 1L, min_val = 1L)
+    m <- safe_m_value(rv$m)
+    req(!is.null(m))
     selectInput("trend_mod", "Modality:",
                 choices = setNames(seq_len(m), paste0("M", seq_len(m))), selected = 1)
   })
@@ -1965,32 +2191,53 @@ server <- function(input, output, session) {
       need(nrow(dat) == nrow(cov), "Feature and covariate files have different numbers of rows."),
       need(nrow(dat) == length(bat), "Feature and batch files have different numbers of rows.")
     )
-    df <- data.frame(x = cov[[cvar]], y = dat[[feat]], Batch = bat)
+    df <- data.frame(x = cov[[cvar]], y = dat[[feat]], Batch = bat, stringsAsFactors = FALSE)
+    df$x <- suppressWarnings(as.numeric(df$x))
+    df$y <- suppressWarnings(as.numeric(df$y))
+    df$Batch <- clean_batch_for_plot(df$Batch)
     df <- df[is.finite(df$x) & is.finite(df$y) & !is.na(df$Batch), , drop = FALSE]
-    validate(need(nrow(df) >= 3, "Not enough complete observations to draw the trend plot."))
-    p  <- if (isTRUE(input$trend_batch_color)) {
-      ggplot(df, aes(x=x, y=y, color=Batch)) + geom_point(alpha=0.55, size=1.8) +
-        scale_color_brewer(palette="Set2", name="Batch")
+    df$Batch <- droplevels(df$Batch)
+    validate(
+      need(nrow(df) >= 3, "Not enough complete observations to draw the trend plot."),
+      need(length(unique(df$x)) >= 2, "The selected covariate has too little variation for a trend plot."),
+      need(length(unique(df$y)) >= 2, "The selected feature has too little variation for a trend plot.")
+    )
+    
+    batch_cols <- safe_discrete_palette(levels(df$Batch))
+    
+    p <- ggplot(df, aes(x = x, y = y))
+    if (isTRUE(input$trend_batch_color)) {
+      p <- p +
+        geom_point(aes(color = Batch), alpha = 0.55, size = 1.8) +
+        scale_color_manual(values = batch_cols, name = "Batch")
     } else {
-      ggplot(df, aes(x=x, y=y)) + geom_point(alpha=0.45, size=1.8, color="#2e4c8a")
+      p <- p + geom_point(alpha = 0.45, size = 1.8, color = "#2e4c8a")
     }
+    
+    # The smooth layers intentionally use group = 1. This shows the overall
+    # covariate-feature trend and prevents batch coloring from being inherited
+    # as separate smoothing groups in some ggplot/Shiny environments.
     if (input$trend_smooth == "lm") {
-      p <- p + geom_smooth(method="lm", formula=y~x, color="#c0392b", linewidth=1.1,
-                           se=TRUE, fill="#f5b7b1", alpha=0.25)
+      p <- p + geom_smooth(aes(group = 1), method = "lm", formula = y ~ x,
+                           color = "#c0392b", linewidth = 1.1,
+                           se = TRUE, fill = "#f5b7b1", alpha = 0.25)
     } else if (input$trend_smooth == "loess") {
-      p <- p + geom_smooth(method="loess", formula=y~x, color="#1a5276", linewidth=1.1,
-                           se=TRUE, fill="#aed6f1", alpha=0.25)
+      p <- p + geom_smooth(aes(group = 1), method = "loess", formula = y ~ x,
+                           color = "#1a5276", linewidth = 1.1,
+                           se = TRUE, fill = "#aed6f1", alpha = 0.25)
     } else {
       p <- p +
-        geom_smooth(method="lm",    formula=y~x, aes(linetype="lm"),
-                    color="#c0392b", linewidth=1.0, se=TRUE, fill="#f5b7b1", alpha=0.18) +
-        geom_smooth(method="loess", formula=y~x, aes(linetype="loess"),
-                    color="#1a5276", linewidth=1.0, se=TRUE, fill="#aed6f1", alpha=0.18) +
-        scale_linetype_manual(name="Smooth",
-                              values=c("lm"="solid","loess"="dashed"),
-                              labels=c("lm (linear)","GAM / loess"))
+        geom_smooth(aes(group = 1, linetype = "lm"), method = "lm", formula = y ~ x,
+                    color = "#c0392b", linewidth = 1.0, se = TRUE,
+                    fill = "#f5b7b1", alpha = 0.18) +
+        geom_smooth(aes(group = 1, linetype = "loess"), method = "loess", formula = y ~ x,
+                    color = "#1a5276", linewidth = 1.0, se = TRUE,
+                    fill = "#aed6f1", alpha = 0.18) +
+        scale_linetype_manual(name = "Smooth",
+                              values = c("lm" = "solid", "loess" = "dashed"),
+                              labels = c("lm (linear)", "GAM / loess"))
     }
-    p + labs(x=cvar, y=feat, title=paste0(feat," ~ ",cvar,"  [M",i,"]")) + bold_theme(12)
+    p + labs(x = cvar, y = feat, title = paste0(feat, " ~ ", cvar, "  [M", i, "]")) + bold_theme(12)
   }, bg = "white")
   
   output$formula_ui <- renderUI({
@@ -2227,15 +2474,20 @@ server <- function(input, output, session) {
   
   output$pre_pca <- renderPlot({
     req(rv$pre_pca)
-    pca_plot(rv$pre_pca, type = pca_type_use(input$pre_pca_type),
-             pc_1 = input$pre_pc1, pc_2 = input$pre_pc2, ellipse = input$pre_ellipse) +
+    pca_plot_robust(rv$pre_pca, type = pca_type_use(input$pre_pca_type),
+                    pc_1 = input$pre_pc1, pc_2 = input$pre_pc2,
+                    ellipse = input$pre_ellipse) +
       labs(title = "PCA – Pre-Harmonization") + bold_theme(12) +
-      theme(plot.background = element_rect(fill = "white", color = NA))
+      theme(plot.background = element_rect(fill = "white", color = NA),
+            plot.margin = margin(8, 8, 8, 8))
+  }, height = function() {
+    req(rv$pre_pca)
+    pca_plot_height_px(rv$pre_pca, type = pca_type_use(input$pre_pca_type), compare_mode = FALSE)
   }, bg = "white")
   
   output$pre_feat_ui   <- renderUI({ req(rv$feat_names); selectInput("pre_feat", "Feature:", choices = rv$feat_names, selected = rv$feat_names[1]) })
-  output$pre_mod_ui    <- renderUI({ req(rv$m); selectInput("pre_mod", "Modality:", choices = setNames(seq_len(rv$m), paste0("M",seq_len(rv$m))), selected = 1) })
-  output$pre_modsel_ui <- renderUI({ req(rv$m); selectInput("pre_modsel", "Modality:", choices = setNames(seq_len(rv$m), paste0("M",seq_len(rv$m))), selected = 1) })
+  output$pre_mod_ui    <- renderUI({ m <- safe_m_value(rv$m); req(!is.null(m)); selectInput("pre_mod", "Modality:", choices = setNames(seq_len(m), paste0("M",seq_len(m))), selected = 1) })
+  output$pre_modsel_ui <- renderUI({ m <- safe_m_value(rv$m); req(!is.null(m)); selectInput("pre_modsel", "Modality:", choices = setNames(seq_len(m), paste0("M",seq_len(m))), selected = 1) })
   
   detect_outliers <- function(resid_mat, bat, feat) {
     # Detect regular and extreme Tukey outliers within each batch.
@@ -2297,8 +2549,15 @@ server <- function(input, output, session) {
   }
   
   brewer_hex <- function(palette, n) {
-    tryCatch(RColorBrewer::brewer.pal(max(3L, n), palette)[seq_len(n)],
-             error = function(e) rep("#888888", n))
+    # Kept for backward compatibility with internal plotting helpers, but make it
+    # safe for n > Brewer palette limits and for environments that handle Brewer
+    # warnings/errors differently.
+    pal <- switch(palette,
+                  "Pastel1" = "Pastel 1",
+                  "Pastel2" = "Pastel 2",
+                  "Set2" = "Dark 3",
+                  "Dark 3")
+    safe_discrete_palette(as.integer(n), palette = pal)
   }
   
   make_resid_boxplot_plotly <- function(
@@ -2791,14 +3050,16 @@ server <- function(input, output, session) {
   
   output$pre_uni_heat <- renderPlot({
     req(rv$pre_tests)
-    print(render_uni_heat(tests_to_df(rv$pre_tests), paste0("M",seq_len(rv$m)),
+    m <- safe_m_value(rv$m); req(!is.null(m))
+    print(render_uni_heat(tests_to_df(rv$pre_tests), paste0("M",seq_len(m)),
                           "Pre-harmonization: % significant features \n"))
   }, bg = "white")
   
   output$pre_uni_tbl <- renderDT({
     req(rv$pre_tests)
+    m <- safe_m_value(rv$m); req(!is.null(m))
     df <- tests_to_df(rv$pre_tests)
-    df <- cbind(Modality = paste0("M", seq_len(rv$m)), df)
+    df <- cbind(Modality = paste0("M", seq_len(m)), df)
     names(df) <- c("Modality","ANOVA","Kruskal","Levene","Bartlett","Fligner")
     datatable(df, rownames=FALSE, options=list(dom="t"), class="compact stripe")
   })
@@ -3088,7 +3349,8 @@ server <- function(input, output, session) {
       setProgress(0.2)
       tryCatch({
         if (harm_mode_use == "uni") {
-          parts <- lapply(seq_len(rv$m), function(i)
+          m <- safe_m_value(rv$m); req(!is.null(m))
+          parts <- lapply(seq_len(m), function(i)
             com_harm(bat=rv$bat_list[[i]], data=rv$data_list[[i]],
                      covar=rv$covar_list[[i]], model=rv$model_fn,
                      formula=rv$formula_obj, ref.batch=rv$ref_batch,
@@ -3246,7 +3508,8 @@ server <- function(input, output, session) {
       dir.create(file.path(project_dir, "results", "stan_fits"), recursive = TRUE, showWarnings = FALSE)
       
       # Save one feature matrix per modality to data/
-      for (i in seq_len(rv$m)) {
+      m <- safe_m_value(rv$m); req(!is.null(m))
+      for (i in seq_len(m)) {
         write.csv(
           rv$data_list[[i]],
           file = file.path(project_dir, "data", paste0("modality_", i, ".csv")),
@@ -3342,9 +3605,10 @@ server <- function(input, output, session) {
   # ── EB shrinkage plot and BA plot (unchanged) ─────────────────────────────
   output$eb_shrink_mod_ui <- renderUI({
     req(eb_available())
-    if (rv$harm$mode == "uni" && rv$m > 1)
+    m <- safe_m_value(rv$m); req(!is.null(m))
+    if (rv$harm$mode == "uni" && m > 1)
       selectInput("eb_shrink_mod", "Modality:",
-                  choices=setNames(seq_len(rv$m),paste0("M",seq_len(rv$m))), selected=1)
+                  choices=setNames(seq_len(m),paste0("M",seq_len(m))), selected=1)
   })
   output$eb_shrink_range_ui <- renderUI({
     req(eb_available(), rv$G)
@@ -3459,6 +3723,8 @@ server <- function(input, output, session) {
       }
       long_df$Feature <- factor(long_df$Feature, levels = rev(feat_levels))
 
+      long_df$Batch <- clean_batch_for_plot(long_df$Batch)
+      batch_cols <- safe_discrete_palette(levels(droplevels(long_df$Batch)))
       ggplot(long_df) +
         geom_segment(aes(x=hat,xend=star,y=Feature,yend=Feature,color=Batch),
                      linewidth=1.1,alpha=0.65,
@@ -3467,7 +3733,7 @@ server <- function(input, output, session) {
         geom_point(aes(x=star,y=Feature,color=Batch,size=shrink),shape=16,alpha=0.88) +
         geom_vline(xintercept=0,linetype="dashed",color="#999",linewidth=0.5) +
         facet_wrap(~Batch,nrow=1) +
-        scale_color_brewer(palette="Set2",guide="none") +
+        scale_color_manual(values=batch_cols, guide="none") +
         scale_size_continuous(name=size_lbl,range=c(1.5,6.5),
                               guide=guide_legend(override.aes=list(color="#2e4c8a"))) +
         labs(x=x_lbl,y="Feature",title=ttl) + bold_theme(11) +
@@ -3479,9 +3745,10 @@ server <- function(input, output, session) {
   })
   
   output$ba_mod_ui <- renderUI({
-    req(rv$harm, rv$m)
+    req(rv$harm)
+    m <- safe_m_value(rv$m); req(!is.null(m))
     selectInput("ba_mod", label=NULL,
-                choices=setNames(seq_len(rv$m),paste0("M",seq_len(rv$m))),
+                choices=setNames(seq_len(m),paste0("M",seq_len(m))),
                 selected=1, width="90px")
   })
   
@@ -3501,11 +3768,13 @@ server <- function(input, output, session) {
     }))
     df$Stage   <- factor(df$Stage, levels=c("Before","After"))
     df$Feature <- factor(df$Feature, levels=rv$feat_names)
-    df$IsRef   <- !is.null(rv$ref_batch) & df$Batch == (rv$ref_batch %||% "")
+    df$Batch <- clean_batch_for_plot(df$Batch)
+    df$IsRef   <- !is.null(rv$ref_batch) & as.character(df$Batch) == (rv$ref_batch %||% "")
+    batch_cols <- safe_discrete_palette(levels(droplevels(df$Batch)))
     ggplot(df, aes(x=Feature,y=Mean,color=Batch,group=Batch)) +
       geom_line(aes(linetype=IsRef,alpha=IsRef),linewidth=0.65) +
       facet_wrap(~Stage,ncol=2) +
-      scale_color_brewer(palette="Set2",name="Batch") +
+      scale_color_manual(values=batch_cols,name="Batch") +
       scale_linetype_manual(values=c("FALSE"="solid","TRUE"="dashed"),guide="none") +
       scale_alpha_manual(values=c("FALSE"=0.72,"TRUE"=1.0),guide="none") +
       labs(x="Feature",y="Batch mean",
@@ -3532,8 +3801,9 @@ server <- function(input, output, session) {
   })
   
   output$dl_ui <- renderUI({
-    req(rv$harm, rv$m)
-    tagList(lapply(seq_len(rv$m), function(i) tags$div(
+    req(rv$harm)
+    m <- safe_m_value(rv$m); req(!is.null(m))
+    tagList(lapply(seq_len(m), function(i) tags$div(
       style="margin-bottom:4px;",
       downloadButton(paste0("dlh",i), paste0("M",i," harm_data.csv"),
                      class="btn btn-primary btn-sm", style="width:100%;margin-bottom:3px;"),
@@ -3543,8 +3813,9 @@ server <- function(input, output, session) {
   })
   
   observe({
-    req(rv$harm, rv$m)
-    lapply(seq_len(rv$m), function(i) local({
+    req(rv$harm)
+    m <- safe_m_value(rv$m); req(!is.null(m))
+    lapply(seq_len(m), function(i) local({
       ii <- i
       output[[paste0("dlh",ii)]] <- downloadHandler(
         filename=paste0("harm_data_M",ii,".csv"),
@@ -3615,41 +3886,58 @@ server <- function(input, output, session) {
   })
   
   pca_with_matched_axes <- function(pca_obj, type, pc1, pc2, ellipse, title_lbl) {
-    p_before <- pca_plot(rv$pre_pca,  type=type,pc_1=pc1,pc_2=pc2,ellipse=ellipse)
-    p_after  <- pca_plot(rv$post_pca, type=type,pc_1=pc1,pc_2=pc2,ellipse=ellipse)
+    p_before <- pca_plot_robust(rv$pre_pca,  type = type, pc_1 = pc1, pc_2 = pc2,
+                                ellipse = ellipse, equal_axes = FALSE)
+    p_after  <- pca_plot_robust(rv$post_pca, type = type, pc_1 = pc1, pc_2 = pc2,
+                                ellipse = ellipse, equal_axes = FALSE)
     b1 <- ggplot_build(p_before); b2 <- ggplot_build(p_after)
-    x_all <- c(unlist(lapply(b1$data,`[[`,"x")),unlist(lapply(b2$data,`[[`,"x")))
-    y_all <- c(unlist(lapply(b1$data,`[[`,"y")),unlist(lapply(b2$data,`[[`,"y")))
-    x_rng <- range(x_all,na.rm=TRUE); y_rng <- range(y_all,na.rm=TRUE)
-    p <- if (title_lbl=="Before") p_before else p_after
-    p + labs(title=title_lbl) + coord_equal(xlim=x_rng,ylim=y_rng) + bold_theme(12) +
-      theme(plot.background=element_rect(fill="white",color=NA),
-            legend.position="bottom",plot.margin=margin(8,8,8,8))
+    x_all <- c(unlist(lapply(b1$data, `[[`, "x")), unlist(lapply(b2$data, `[[`, "x")))
+    y_all <- c(unlist(lapply(b1$data, `[[`, "y")), unlist(lapply(b2$data, `[[`, "y")))
+    x_rng <- range(x_all, na.rm = TRUE); y_rng <- range(y_all, na.rm = TRUE)
+    p <- if (title_lbl == "Before") p_before else p_after
+    use_equal_axes <- pca_equal_axes_default(pca_obj, type)
+    p <- p + labs(title = title_lbl) + bold_theme(12) +
+      theme(plot.background = element_rect(fill = "white", color = NA),
+            legend.position = "bottom", plot.margin = margin(8, 8, 8, 8))
+    if (isTRUE(use_equal_axes)) {
+      p + coord_equal(xlim = x_rng, ylim = y_rng)
+    } else {
+      p + coord_cartesian(xlim = x_rng, ylim = y_rng)
+    }
   }
   
   output$post_pca_before <- renderPlot({
-    req(rv$pre_pca,rv$post_pca)
+    req(rv$pre_pca, rv$post_pca)
     print(pca_with_matched_axes(rv$pre_pca, pca_type_use(input$post_pca_type),
-                                input$post_pc1,input$post_pc2,input$post_ellipse,"Before"))
-  }, bg="white")
+                                input$post_pc1, input$post_pc2, input$post_ellipse, "Before"))
+  }, height = function() {
+    req(rv$pre_pca)
+    pca_plot_height_px(rv$pre_pca, type = pca_type_use(input$post_pca_type), compare_mode = TRUE)
+  }, bg = "white")
   output$post_pca_after <- renderPlot({
-    req(rv$pre_pca,rv$post_pca)
+    req(rv$pre_pca, rv$post_pca)
     print(pca_with_matched_axes(rv$post_pca, pca_type_use(input$post_pca_type),
-                                input$post_pc1,input$post_pc2,input$post_ellipse,"After"))
-  }, bg="white")
+                                input$post_pc1, input$post_pc2, input$post_ellipse, "After"))
+  }, height = function() {
+    req(rv$post_pca)
+    pca_plot_height_px(rv$post_pca, type = pca_type_use(input$post_pca_type), compare_mode = TRUE)
+  }, bg = "white")
   output$post_heat_before <- renderPlot({
     req(rv$pre_tests)
-    print(render_uni_heat(tests_to_df(rv$pre_tests),paste0("M",seq_len(rv$m)),"Before harmonization \n"))
+    m <- safe_m_value(rv$m); req(!is.null(m))
+    print(render_uni_heat(tests_to_df(rv$pre_tests),paste0("M",seq_len(m)),"Before harmonization \n"))
   }, bg="white")
   output$post_heat_after <- renderPlot({
     req(rv$post_tests)
-    print(render_uni_heat(tests_to_df(rv$post_tests),paste0("M",seq_len(rv$m)),"After harmonization \n"))
+    m <- safe_m_value(rv$m); req(!is.null(m))
+    print(render_uni_heat(tests_to_df(rv$post_tests),paste0("M",seq_len(m)),"After harmonization \n"))
   }, bg="white")
   
   output$post_tbl <- renderDT({
     req(rv$pre_tests, rv$post_tests)
+    m <- safe_m_value(rv$m); req(!is.null(m))
     pre_df <- tests_to_df(rv$pre_tests); pst_df <- tests_to_df(rv$post_tests)
-    ms <- paste0("M",seq_len(rv$m))
+    ms <- paste0("M",seq_len(m))
     test_labels <- c("ANOVA","Kruskal","Levene","Bartlett","Fligner")
     test_cols   <- c("anova_result","kruskal_result","lv_result","bl_result","fk_result")
     df <- data.frame(Modality=ms,
@@ -3762,14 +4050,17 @@ server <- function(input, output, session) {
   })
   
   output$post_feat_ui <- renderUI({ req(rv$feat_names); selectInput("post_feat","Feature:",choices=rv$feat_names,selected=rv$feat_names[1]) })
-  output$post_mod_ui  <- renderUI({ req(rv$m); selectInput("post_mod","Modality:",choices=setNames(seq_len(rv$m),paste0("M",seq_len(rv$m))),selected=1) })
+  output$post_mod_ui  <- renderUI({ m <- safe_m_value(rv$m); req(!is.null(m)); selectInput("post_mod","Modality:",choices=setNames(seq_len(m),paste0("M",seq_len(m))),selected=1) })
   
   post_box <- function(resid_mat, bat, feat, stage_label, fill_pal="Set2", jitter=FALSE) {
     if (is.null(resid_mat) || !feat %in% colnames(resid_mat)) return(NULL)
-    df <- data.frame(value=resid_mat[,feat], Batch=bat)
+    df <- data.frame(value=suppressWarnings(as.numeric(resid_mat[,feat])), Batch=clean_batch_for_plot(bat))
+    df <- df[is.finite(df$value) & !is.na(df$Batch), , drop = FALSE]
+    validate(need(nrow(df) > 0, "No valid residual values are available."))
+    fill_cols <- safe_discrete_palette(levels(droplevels(df$Batch)))
     p <- ggplot(df, aes(x=Batch,y=value,fill=Batch)) +
       geom_boxplot(outlier.size=0.7,width=.55,linewidth=.4,alpha=.85,color="#333") +
-      scale_fill_brewer(palette=fill_pal) +
+      scale_fill_manual(values=fill_cols) +
       labs(x="Batch",y="Residual",title=stage_label) + bold_theme(11) +
       theme(legend.position="none",panel.grid.major.x=element_blank())
     if (jitter) p <- p + geom_jitter(width=.18,size=.5,alpha=.3,color="#333")
@@ -4065,16 +4356,17 @@ server <- function(input, output, session) {
   })
   
   output$eb_mod_ui <- renderUI({
-    req(eb_available(), rv$m)
+    req(eb_available())
+    m <- safe_m_value(rv$m); req(!is.null(m))
     
-    if (rv$m <= 1) {
+    if (m <= 1) {
       return(NULL)
     }
     
     selectInput(
       "eb_mod",
       "Modality:",
-      choices  = setNames(seq_len(rv$m), paste0("M", seq_len(rv$m))),
+      choices  = setNames(seq_len(m), paste0("M", seq_len(m))),
       selected = 1
     )
   })
@@ -4505,11 +4797,12 @@ server <- function(input, output, session) {
   output$cov_metric_bar <- renderPlot({
     df <- cov_metrics_df(); req(!is.null(df), input$cov_metric_sel)
     metric <- input$cov_metric_sel
-    df$Batch <- factor(df$Batch, levels=rv$batch_levels)
+    df$Batch <- factor(clean_batch_for_plot(df$Batch), levels=rv$batch_levels)
+    fill_cols <- safe_discrete_palette(levels(droplevels(df$Batch)))
     ggplot(df, aes(x=Batch,y=.data[[metric]],fill=Batch)) +
       geom_col(width=.55,color="white",alpha=.88) +
       geom_text(aes(label=signif(.data[[metric]],3)),vjust=-0.4,size=3.4,fontface="bold") +
-      scale_fill_brewer(palette="Set2") +
+      scale_fill_manual(values=fill_cols) +
       scale_y_continuous(expand=expansion(mult=c(0,.18))) +
       labs(x="Batch",y=metric,title=paste0(metric," deviation from pooled covariance")) +
       bold_theme(12) + theme(legend.position="none",panel.grid.major.x=element_blank())
@@ -4528,6 +4821,8 @@ server <- function(input, output, session) {
     long_df <- norm_df %>%
       pivot_longer(all_of(metric_cols),names_to="Metric",values_to="NormValue") %>%
       mutate(Metric=factor(Metric,levels=metric_cols), Highlight=Metric==metric_sel)
+    long_df$Batch <- clean_batch_for_plot(long_df$Batch)
+    color_cols <- safe_discrete_palette(levels(droplevels(long_df$Batch)))
     ggplot(long_df, aes(x=Metric,y=NormValue,group=Batch,color=Batch)) +
       geom_line(linewidth=.9,alpha=.75) +
       geom_point(aes(size=Highlight,alpha=Highlight),shape=16) +
@@ -4535,7 +4830,7 @@ server <- function(input, output, session) {
                xmin=as.numeric(factor(metric_sel,levels=metric_cols))-.35,
                xmax=as.numeric(factor(metric_sel,levels=metric_cols))+.35,
                ymin=-Inf,ymax=Inf,fill="#f0e6fb",alpha=.45) +
-      scale_color_brewer(palette="Set2",name="Batch") +
+      scale_color_manual(values=color_cols,name="Batch") +
       scale_size_manual(values=c("FALSE"=2.2,"TRUE"=4.5),guide="none") +
       scale_alpha_manual(values=c("FALSE"=.65,"TRUE"=1),guide="none") +
       scale_y_continuous(limits=c(0,1),labels=scales::label_percent(),
@@ -5206,10 +5501,12 @@ server <- function(input, output, session) {
         )
       }
       
+      draws_long$Chain <- clean_batch_for_plot(draws_long$Chain)
+      chain_cols <- safe_discrete_palette(levels(droplevels(draws_long$Chain)))
       ggplot(draws_long, aes(x = Iteration, y = Value, color = Chain, group = Chain)) +
         geom_line(alpha = 0.6, linewidth = 0.4) +
         facet_wrap(~Parameter, scales = "free_y", ncol = 2) +
-        scale_color_brewer(palette = "Set2") +
+        scale_color_manual(values = chain_cols) +
         labs(x = "Iteration", y = "Value",
              title = paste0("Trace plots — ", input$trace_param),
              subtitle = if (identical(rv$mcmc_mode, "uni")) paste0("Metric/Modality ", mod_idx) else "Multivariate fit") +

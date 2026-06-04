@@ -12,8 +12,7 @@ RoxygenNote: 7.3.2
 Depends:
     R (>= 4.1.0)
 Suggests:
-    remotes,
-    shiny,
+    shiny (>= 1.8.0),
     shinydashboard,
     shinyWidgets,
     DT,
@@ -30,18 +29,19 @@ Suggests:
     MCMCpack,
     tibble,
     scales,
+    RColorBrewer,
     plotly,
+    htmlwidgets,
     ggrepel,
     openxlsx,
     posterior,
     patchwork,
     zip,
+    cmdstanr,
     MultiComBat,
     caret,
     randomForest,
     pROC,
     testthat (>= 3.0.0)
-Remotes:
-    Zheng206/MultiComBat
 Additional_repositories: https://mc-stan.org/r-packages/
 Config/testthat/edition: 3
