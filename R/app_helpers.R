@@ -2,8 +2,10 @@
 
 utils::globalVariables(c(".data", "bat", "measurement"))
 
+#' @export
 `%||%` <- function(a, b) if (!is.null(a)) a else b
 
+#' @export
 safe_positive_int <- function(x, default = 1L, min_val = 1L, max_val = Inf) {
   out <- suppressWarnings(as.integer(x))
   out <- out[1]
@@ -12,6 +14,7 @@ safe_positive_int <- function(x, default = 1L, min_val = 1L, max_val = Inf) {
   as.integer(out)
 }
 
+#' @export
 valid_positive_int <- function(x, min_val = 1L, max_val = Inf) {
   out <- suppressWarnings(as.integer(x))
   out <- out[1]
@@ -19,17 +22,20 @@ valid_positive_int <- function(x, min_val = 1L, max_val = Inf) {
     (!is.finite(max_val) || out <= max_val)
 }
 
+#' @export
 safe_m_value <- function(m) {
   if (!valid_positive_int(m, min_val = 1L)) return(NULL)
   as.integer(m)
 }
 
+#' @export
 clean_batch_for_plot <- function(x) {
   x <- trimws(as.character(x))
   x[x %in% c("", "NA", "N/A", "NULL", "null", "NaN", "nan")] <- NA_character_
   factor(x, levels = unique(x[!is.na(x)]))
 }
 
+#' @export
 safe_discrete_palette <- function(levels_or_n, palette = "Dark 3") {
   if (length(levels_or_n) == 1L && is.numeric(levels_or_n)) {
     n <- as.integer(levels_or_n)
@@ -58,10 +64,12 @@ safe_discrete_palette <- function(levels_or_n, palette = "Dark 3") {
   if (!is.null(lev)) stats::setNames(cols, lev) else cols
 }
 
+#' @export
 pca_equal_axes_default <- function(pca_prep_result, type = "within") {
   !(("F_list" %in% names(pca_prep_result)) && identical(type, "within"))
 }
 
+#' @export
 pca_ncol_facets <- function(m) {
   m <- suppressWarnings(as.integer(m))[1]
   if (length(m) == 0L || is.na(m) || m <= 1L) return(1L)
@@ -70,6 +78,7 @@ pca_ncol_facets <- function(m) {
   3L
 }
 
+#' @export
 pca_legend_rows <- function(n_batch) {
   n_batch <- suppressWarnings(as.integer(n_batch))[1]
   if (length(n_batch) == 0L || is.na(n_batch) || n_batch <= 8L) return(1L)
@@ -77,6 +86,7 @@ pca_legend_rows <- function(n_batch) {
   3L
 }
 
+#' @export
 pca_plot_height_px <- function(pca_prep_result, type = "within", compare_mode = FALSE) {
   base_height <- if (compare_mode) 520L else 560L
   if (is.null(pca_prep_result)) return(base_height)
@@ -93,6 +103,7 @@ pca_plot_height_px <- function(pca_prep_result, type = "within", compare_mode = 
   base_height
 }
 
+#' @export
 can_draw_ellipse_by_group <- function(df, group_var = "bat", facet_var = NULL) {
   if (is.null(df) || !nrow(df) || !group_var %in% names(df)) return(FALSE)
 
@@ -113,6 +124,7 @@ can_draw_ellipse_by_group <- function(df, group_var = "bat", facet_var = NULL) {
   }
 }
 
+#' @export
 pca_plot_robust <- function(pca_prep_result,
                             type = "within",
                             pc_1 = 1,
@@ -254,6 +266,7 @@ pca_plot_robust <- function(pca_prep_result,
   }
 }
 
+#' @export
 to_numeric_if_possible <- function(x, min_prop = 0.80) {
   if (is.factor(x)) x <- as.character(x)
   if (is.numeric(x) || is.integer(x)) return(as.numeric(x))
@@ -271,6 +284,7 @@ to_numeric_if_possible <- function(x, min_prop = 0.80) {
   if (isTRUE(prop_numeric >= min_prop)) y else x
 }
 
+#' @export
 numeric_like_prop <- function(x) {
   if (is.factor(x)) x <- as.character(x)
   if (is.numeric(x) || is.integer(x)) return(1)
@@ -285,6 +299,7 @@ numeric_like_prop <- function(x) {
   mean(!is.na(y[non_empty]))
 }
 
+#' @export
 clean_uploaded_covar <- function(df, subject_id_cols = character()) {
   if (is.null(df)) return(NULL)
 
@@ -304,10 +319,12 @@ clean_uploaded_covar <- function(df, subject_id_cols = character()) {
   df
 }
 
+#' @export
 get_param_family <- function(x) {
   sub("\\[.*$", "", as.character(x))
 }
 
+#' @export
 extract_stan_indices <- function(x) {
   inside <- sub("^.*\\[", "", as.character(x))
   inside <- sub("\\]$", "", inside)
@@ -319,6 +336,8 @@ extract_stan_indices <- function(x) {
   suppressWarnings(as.integer(strsplit(inside, ",")[[1]]))
 }
 
+
+#' @export
 get_first_index <- function(vars) {
   idx <- lapply(vars, extract_stan_indices)
   vapply(idx, function(z) {
@@ -326,6 +345,8 @@ get_first_index <- function(vars) {
   }, integer(1))
 }
 
+
+#' @export
 get_second_index <- function(vars) {
   idx <- lapply(vars, extract_stan_indices)
   vapply(idx, function(z) {
@@ -333,6 +354,7 @@ get_second_index <- function(vars) {
   }, integer(1))
 }
 
+#' @export
 standardize_mcmc_summary <- function(smry) {
   if (is.null(smry)) return(NULL)
 
@@ -351,12 +373,14 @@ standardize_mcmc_summary <- function(smry) {
   smry
 }
 
+#' @export
 detect_mcmc_families <- function(smry) {
   smry <- standardize_mcmc_summary(smry)
   if (is.null(smry) || !"variable" %in% colnames(smry)) return(character(0))
   sort(unique(get_param_family(smry$variable)))
 }
 
+#' @export
 match_mcmc_param <- function(smry, semantic = c("gamma", "delta")) {
   semantic <- match.arg(semantic)
   families <- detect_mcmc_families(smry)
@@ -378,6 +402,7 @@ match_mcmc_param <- function(smry, semantic = c("gamma", "delta")) {
   if (length(fallback) > 0) fallback[1] else families[1]
 }
 
+#' @export
 filter_mcmc_summary <- function(smry, family, batch = NULL, modality = NULL) {
   smry <- standardize_mcmc_summary(smry)
 
@@ -405,6 +430,7 @@ filter_mcmc_summary <- function(smry, family, batch = NULL, modality = NULL) {
   df
 }
 
+#' @export
 find_nested_component <- function(x, candidate_names, max_depth = 6) {
   if (max_depth < 0 || is.null(x)) return(NULL)
 
@@ -424,6 +450,7 @@ find_nested_component <- function(x, candidate_names, max_depth = 6) {
   NULL
 }
 
+#' @export
 get_shrink_pair <- function(obj, parm = c("gamma", "delta")) {
   parm <- match.arg(parm)
 
@@ -443,6 +470,7 @@ get_shrink_pair <- function(obj, parm = c("gamma", "delta")) {
   )
 }
 
+#' @export
 vectorize_shrink_object <- function(x, batch = NULL) {
   if (is.null(x)) return(numeric(0))
   if (is.data.frame(x)) x <- as.matrix(x)
