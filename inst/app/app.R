@@ -28,10 +28,44 @@ suppressPackageStartupMessages({
   library(openxlsx)
   if (requireNamespace("patchwork", quietly = TRUE)) library(patchwork)
   if (requireNamespace("zip", quietly = TRUE)) library(zip)
+  library(HarmonizeR)
 })
 
 # Allow moderately large diagnostic uploads.
 options(shiny.maxRequestSize = 2 * 1024^3)
+
+# --- Shortcut assignments for internal helpers ---
+`%||%` <- HarmonizeR:::`%||%`
+safe_positive_int <- HarmonizeR:::safe_positive_int
+valid_positive_int <- HarmonizeR:::valid_positive_int
+safe_m_value <- HarmonizeR:::safe_m_value
+clean_batch_for_plot <- HarmonizeR:::clean_batch_for_plot
+safe_discrete_palette <- HarmonizeR:::safe_discrete_palette
+
+pca_equal_axes_default <- HarmonizeR:::pca_equal_axes_default
+pca_ncol_facets <- HarmonizeR:::pca_ncol_facets
+pca_legend_rows <- HarmonizeR:::pca_legend_rows
+pca_plot_height_px <- HarmonizeR:::pca_plot_height_px
+can_draw_ellipse_by_group <- HarmonizeR:::can_draw_ellipse_by_group
+pca_plot_robust <- HarmonizeR:::pca_plot_robust
+
+to_numeric_if_possible <- HarmonizeR:::to_numeric_if_possible
+numeric_like_prop <- HarmonizeR:::numeric_like_prop
+clean_uploaded_covar <- HarmonizeR:::clean_uploaded_covar
+
+get_param_family <- HarmonizeR:::get_param_family
+extract_stan_indices <- HarmonizeR:::extract_stan_indices
+get_first_index <- HarmonizeR:::get_first_index
+get_second_index <- HarmonizeR:::get_second_index
+
+standardize_mcmc_summary <- HarmonizeR:::standardize_mcmc_summary
+detect_mcmc_families <- HarmonizeR:::detect_mcmc_families
+match_mcmc_param <- HarmonizeR:::match_mcmc_param
+filter_mcmc_summary <- HarmonizeR:::filter_mcmc_summary
+
+find_nested_component <- HarmonizeR:::find_nested_component
+get_shrink_pair <- HarmonizeR:::get_shrink_pair
+vectorize_shrink_object <- HarmonizeR:::vectorize_shrink_object
 
 if (!exists("batch_matrix")) {
   r_files <- list.files("R", pattern = "\\.R$", full.names = TRUE)
