@@ -1,0 +1,31 @@
+# Git history — not needed inside the image
+.git
+.gitignore
+.gitattributes
+
+# R project / IDE files
+.Rproj.user
+*.Rproj
+.Rhistory
+.RData
+.Renviron
+
+# renv — dependencies are installed directly in the Dockerfile
+renv/
+renv.lock
+
+# Build / check artefacts
+*.Rcheck/
+check-results/
+coverage-report/
+
+# Docker files themselves (no need to bundle them inside the image)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# macOS noise
+.DS_Store
+
+# CI
+.github/

@@ -1,10 +1,6 @@
 # HarmonizeR
 
-<!-- badges: start -->
-[![R-CMD-check](https://github.com/Zheng206/HarmonizeR/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Zheng206/HarmonizeR/actions/workflows/R-CMD-check.yaml)
-[![test-coverage](https://github.com/Zheng206/HarmonizeR/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/Zheng206/HarmonizeR/actions/workflows/test-coverage.yaml)
-[![Codecov test coverage](https://codecov.io/gh/Zheng206/HarmonizeR/graph/badge.svg)](https://app.codecov.io/gh/Zheng206/HarmonizeR)
-<!-- badges: end -->
+[![R-CMD-check](https://github.com/Zheng206/HarmonizeR/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Zheng206/HarmonizeR/actions/workflows/R-CMD-check.yaml) [![test-coverage](https://github.com/Zheng206/HarmonizeR/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/Zheng206/HarmonizeR/actions/workflows/test-coverage.yaml) [![Codecov test coverage](https://codecov.io/gh/Zheng206/HarmonizeR/graph/badge.svg)](https://app.codecov.io/gh/Zheng206/HarmonizeR)
 
 `HarmonizeR` is an R package that provides an interactive Shiny interface for diagnostic-driven neuroimaging harmonization. It is designed for multi-site imaging studies where technical variation from sites, scanners, acquisition protocols, or other batch variables may obscure biological effects of interest.
 
@@ -21,6 +17,7 @@ The package brings together data upload, batch-effect diagnostics, ComBat-style 
 - **Bayesian MCMC workflow support**, including downloadable standalone Stan scripts and lightweight upload objects for reviewing posterior diagnostics in the app.
 - **Post-harmonization evaluation** to compare batch effects before and after harmonization.
 - **Demo-data generators** for cross-sectional and longitudinal examples.
+
 
 ## Installation
 
@@ -76,6 +73,33 @@ You can pass arguments directly to `shiny::runApp()`. For example:
 HarmonizeR::run_harmonizer(port = 4004, launch.browser = TRUE)
 ```
 
+## Running with Docker
+
+If you prefer not to manage R and package dependencies locally, you can run
+HarmonizeR inside Docker.
+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
+
+```bash
+git clone https://github.com/Zheng206/HarmonizeR.git
+cd HarmonizeR
+docker compose up shiny   # → open http://localhost:3838
+```
+
+> **First run:** the image build takes ~10–15 minutes to compile all
+> dependencies. Subsequent runs use the cached image and start in seconds.
+
+Other available commands:
+
+| Command | What it does |
+|---|---|
+| `docker compose run --rm test` | Run the full testthat suite |
+| `docker compose run --rm check` | R CMD CHECK (output → `./check-results/`) |
+| `docker compose run --rm coverage` | Coverage report (output → `./coverage-report/`) |
+| `docker compose run --rm r` | Interactive R session inside the container |
+
+Or use the Makefile shortcuts: run `make help` to see all targets.
+
 ## Basic workflow
 
 The Shiny app is organized around an end-to-end harmonization workflow.
@@ -92,6 +116,7 @@ The data setup module includes:
 - cross-sectional or longitudinal structure specification;
 - covariate-feature trend exploration.
 
+
 ### 2. Pre-harmonization diagnostics
 
 Before harmonization, users can inspect whether batch effects are present and how they appear in the data. Diagnostics include:
@@ -102,6 +127,7 @@ Before harmonization, users can inspect whether batch effects are present and ho
 - p-value summaries and feature-level exploration;
 - multivariate tests;
 - out-of-sample random forest batch-prediction AUC.
+
 
 These diagnostics are intended to help users decide whether harmonization is needed and which type of harmonization strategy may be appropriate.
 
@@ -116,6 +142,7 @@ The harmonization module supports ComBat-style adjustment through the `MultiComB
 - CovBat-style covariance adjustment;
 - model type, including linear, nonlinear, or longitudinal models.
 
+
 For Bayesian workflows, the app can generate a standalone MCMC script that can be run outside the Shiny session, for example on a local machine or high-performance computing cluster.
 
 ### 4. Post-harmonization evaluation
@@ -127,6 +154,7 @@ After harmonization, users can compare pre- and post-harmonization results using
 - residual boxplots;
 - batch-prediction AUC before and after harmonization.
 
+
 This step helps evaluate whether residual technical variation remains after adjustment.
 
 ### 5. Empirical Bayes, covariance, and Bayesian diagnostics
@@ -136,6 +164,7 @@ Additional diagnostic tabs provide more detailed review of fitted harmonization 
 - **EB Diagnostics**: prior-versus-empirical summaries and batch-parameter estimates.
 - **Covariance Diagnostics**: covariance and correlation structure summaries before and after adjustment.
 - **Bayesian MCMC Diagnostics**: R-hat, effective sample size, trace plots, posterior summaries, and posterior evidence levels from uploaded lightweight MCMC results.
+
 
 ## Demo data
 
@@ -200,6 +229,7 @@ For computationally intensive Bayesian harmonization, `HarmonizeR` follows a scr
 4. Upload the lightweight result object back into the app.
 5. Review posterior diagnostics, summaries, and harmonized outputs.
 
+
 If a lightweight upload object contains posterior draws but is missing a summary, the object can be repaired with:
 
 ```r
@@ -217,18 +247,19 @@ summary_df <- HarmonizeR::summarize_draws_with_rhat_safe(posterior_draws)
 
 ## Exported functions
 
-| Function | Purpose |
-| --- | --- |
-| `run_harmonizer()` | Launch the Shiny app. |
-| `install_harmonizer_dependencies()` | Install or check app dependencies. |
-| `simulate_demo_data()` | Generate cross-sectional multi-metric demo data. |
-| `simulate_demo_longitudinal_data()` | Generate longitudinal multi-metric demo data. |
-| `batch_auc_cal_cv()` | Compute cross-validated random forest batch-prediction AUC. |
-| `build_mcmc_script()` | Generate a standalone Bayesian MCMC harmonization script. |
-| `mcmc_light_export_helper_code()` | Return helper code used in exported MCMC scripts. |
-| `safe_downsample_draws_by_chain()` | Downsample posterior draws while preserving chain balance. |
-| `summarize_draws_with_rhat_safe()` | Summarize posterior draws with R-hat and effective sample size. |
-| `repair_light_upload()` | Repair lightweight MCMC upload objects with missing summaries. |
+| Function                            | Purpose                                                         |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `run_harmonizer()`                  | Launch the Shiny app.                                           |
+| `install_harmonizer_dependencies()` | Install or check app dependencies.                              |
+| `simulate_demo_data()`              | Generate cross-sectional multi-metric demo data.                |
+| `simulate_demo_longitudinal_data()` | Generate longitudinal multi-metric demo data.                   |
+| `batch_auc_cal_cv()`                | Compute cross-validated random forest batch-prediction AUC.     |
+| `build_mcmc_script()`               | Generate a standalone Bayesian MCMC harmonization script.       |
+| `mcmc_light_export_helper_code()`   | Return helper code used in exported MCMC scripts.               |
+| `safe_downsample_draws_by_chain()`  | Downsample posterior draws while preserving chain balance.      |
+| `summarize_draws_with_rhat_safe()`  | Summarize posterior draws with R-hat and effective sample size. |
+| `repair_light_upload()`             | Repair lightweight MCMC upload objects with missing summaries.  |
+
 
 ## Data requirements
 
@@ -238,6 +269,7 @@ For most workflows, users should provide:
 - one batch-label vector per metric, or one shared batch-label vector;
 - optional biological or clinical covariates to preserve;
 - optional subject and visit identifiers for longitudinal analyses.
+
 
 For multi-metric harmonization, feature matrices should generally be aligned so that rows correspond to the same subjects or observations across metrics.
 

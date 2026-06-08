@@ -1,0 +1,76 @@
+# =============================================================================
+# docker-compose.yml — HarmonizeR
+#
+# USAGE
+#   docker compose run --rm test       # full testthat suite
+#   docker compose run --rm check      # R CMD CHECK (strict)
+#   docker compose run --rm coverage   # code-coverage report
+#   docker compose up  shiny           # Shiny app → http://localhost:3838
+#   docker compose run --rm r          # interactive R session
+# =============================================================================
+services:
+
+  # ---------------------------------------------------------------------------
+  # testthat — runs every test-*.R file under tests/testthat/
+  # ---------------------------------------------------------------------------
+  test:
+    build: .
+    command: >
+      Rscript -e "
+        library(testthat);
+        library(HarmonizeR);
+        test_dir(system.file('tests/testthat', package='HarmonizeR'), reporter='progress')
+      "
+
+  # ---------------------------------------------------------------------------
+  # R CMD CHECK — catches missing docs, bad examples, NOTEs, WARNINGs, ERRORs
+  # Results are written to ./check-results/ on the host.
+  # ---------------------------------------------------------------------------
+  check:
+    build: .
+    volumes:
+      - ./check-results:/workspace/check-results
+    command: >
+      bash -c "
+        PKG_PATH=$$(Rscript -e 'cat(system.file(package=\"HarmonizeR\"))');
+        R CMD check $$PKG_PATH --no-manual --no-build-vignettes 2>&1 | tee /workspace/check-results/check.log
+      "
+
+  # ---------------------------------------------------------------------------
+  # coverage — HTML report written to ./coverage-report/ on the host
+  # ---------------------------------------------------------------------------
+  coverage:
+    build: .
+    volumes:
+      - ./coverage-report:/workspace/coverage-report
+    command: >
+      Rscript -e "
+        cov <- covr::package_coverage(
+          path = system.file(package = 'HarmonizeR'),
+          quiet = FALSE
+        );
+        print(cov);
+        covr::report(cov, file = '/workspace/coverage-report/coverage.html')
+      "
+
+  # ---------------------------------------------------------------------------
+  # shiny — full Shiny app, open http://localhost:3838 in your browser
+  # ---------------------------------------------------------------------------
+  shiny:
+    build: .
+    ports:
+      - "3838:3838"
+    command: >
+      Rscript -e "
+        HarmonizeR::run_harmonizer(host = '0.0.0.0', port = 3838)
+      "
+    restart: on-failure
+
+  # ---------------------------------------------------------------------------
+  # r — drop into an interactive R session for debugging
+  # ---------------------------------------------------------------------------
+  r:
+    build: .
+    stdin_open: true
+    tty: true
+    command: R
