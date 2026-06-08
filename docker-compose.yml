@@ -8,6 +8,7 @@
 #   docker compose up  shiny           # Shiny app → http://localhost:3838
 #   docker compose run --rm r          # interactive R session
 # =============================================================================
+
 services:
 
   # ---------------------------------------------------------------------------
@@ -15,11 +16,14 @@ services:
   # ---------------------------------------------------------------------------
   test:
     build: .
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
     command: >
       Rscript -e "
         library(testthat);
         library(HarmonizeR);
-        test_dir(system.file('tests/testthat', package='HarmonizeR'), reporter='progress')
+        test_dir('tests/testthat', reporter = 'progress')
       "
 
   # ---------------------------------------------------------------------------
@@ -28,12 +32,15 @@ services:
   # ---------------------------------------------------------------------------
   check:
     build: .
+    working_dir: /workspace
     volumes:
+      - .:/workspace
       - ./check-results:/workspace/check-results
     command: >
       bash -c "
-        PKG_PATH=$$(Rscript -e 'cat(system.file(package=\"HarmonizeR\"))');
-        R CMD check $$PKG_PATH --no-manual --no-build-vignettes 2>&1 | tee /workspace/check-results/check.log
+        R CMD build . --no-build-vignettes;
+        PKG_TARBALL=$$(ls -t *.tar.gz | head -n 1);
+        R CMD check $$PKG_TARBALL --no-manual --no-build-vignettes 2>&1 | tee /workspace/check-results/check.log
       "
 
   # ---------------------------------------------------------------------------
@@ -41,13 +48,16 @@ services:
   # ---------------------------------------------------------------------------
   coverage:
     build: .
+    working_dir: /workspace
     volumes:
+      - .:/workspace
       - ./coverage-report:/workspace/coverage-report
     command: >
       Rscript -e "
         cov <- covr::package_coverage(
-          path = system.file(package = 'HarmonizeR'),
-          quiet = FALSE
+          path = '.',
+          quiet = FALSE,
+          clean = FALSE
         );
         print(cov);
         covr::report(cov, file = '/workspace/coverage-report/coverage.html')
@@ -71,6 +81,9 @@ services:
   # ---------------------------------------------------------------------------
   r:
     build: .
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
     stdin_open: true
     tty: true
     command: R
