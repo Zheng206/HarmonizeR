@@ -1,9 +1,3 @@
-# =============================================================================
-#  HarmonizeR  —  Interactive Batch Diagnostics & Harmonization Shiny App
-#  Supports both cross-sectional and longitudinal data structures
-#  Data structure: list of m matrices (one per measurement/modality)
-# =============================================================================
-
 suppressPackageStartupMessages({
   library(shiny)
   library(shinydashboard)
@@ -34,7 +28,7 @@ suppressPackageStartupMessages({
 # Allow moderately large diagnostic uploads.
 options(shiny.maxRequestSize = 2 * 1024^3)
 
-# --- Shortcut assignments for internal helpers ---
+# Shortcut assignments for internal helpers 
 `%||%` <- HarmonizeR:::`%||%`
 safe_positive_int <- HarmonizeR:::safe_positive_int
 valid_positive_int <- HarmonizeR:::valid_positive_int
@@ -75,10 +69,8 @@ if (!exists("batch_matrix")) {
              error = function(e) message("Cannot source ", basename(f)))))
 }
 
-# =============================================================================
-#  UI
-# =============================================================================
 ui <- dashboardPage(
+  title = "HarmonizeR | Neuroimaging Harmonization",
   skin = "blue",
   
   dashboardHeader(
@@ -149,10 +141,6 @@ ui <- dashboardPage(
     "))),
     
     tabItems(
-      
-      # ══════════════════════════════════════════════════════════════════════
-      # TAB 1  DATA SETUP  (unchanged)
-      # ══════════════════════════════════════════════════════════════════════
       tabItem(tabName = "data_setup",
               fluidRow(
                 box(title = "Data Source", width = 4, solidHeader = TRUE,
@@ -239,7 +227,7 @@ ui <- dashboardPage(
                 )
               ),
               fluidRow(
-                box(title = "Model Configuration", width = 5, solidHeader = TRUE,
+                box(title = "Model Specification", width = 5, solidHeader = TRUE,
                     fluidRow(
                       column(6, selectInput("model_type", "Regression model:",
                                             choices = c("Linear (lm)" = "lm", "GAM (mgcv)" = "gam",
@@ -252,7 +240,7 @@ ui <- dashboardPage(
                              uiOutput("re_spec_ui"),
                              checkboxInput("bat_adjust", "Include batch in diagnostic model", TRUE),
                              tags$br(),
-                             actionBttn("confirm_config", "Confirm Configuration",
+                             actionBttn("confirm_config", "Confirm Model Specification",
                                         style = "gradient", color = "success", icon = icon("check"))
                       )
                     ),
@@ -277,9 +265,6 @@ ui <- dashboardPage(
               )
       ),
       
-      # ══════════════════════════════════════════════════════════════════════
-      # TAB 2  PRE-HARMONIZATION  (unchanged)
-      # ══════════════════════════════════════════════════════════════════════
       tabItem(tabName = "pre_diag",
               fluidRow(
                 box(width = 12, solidHeader = TRUE, title = "Pre-Harmonization Diagnostics",
@@ -375,9 +360,6 @@ ui <- dashboardPage(
               )
       ),
       
-      # ══════════════════════════════════════════════════════════════════════
-      # TAB 3  HARMONIZATION  — extended with MCMC Script sub-tab
-      # ══════════════════════════════════════════════════════════════════════
       tabItem(tabName = "harmonize",
               fluidRow(
                 box(title = "ComBat Settings", width = 4, solidHeader = TRUE,
@@ -473,7 +455,6 @@ ui <- dashboardPage(
                 )
               ),
               
-              # ── MCMC Script Generator box ──────────────────────────────────────
               fluidRow(
                 box(
                   title = tags$span(icon("file-code"), " MCMC Script Generator — Full Bayesian ComBat"),
@@ -495,7 +476,6 @@ ui <- dashboardPage(
                   ),
                   
                   fluidRow(
-                    # -- Left column: MCMC tuning parameters -----------------------
                     column(4,
                            tags$div(class = "sec-hdr", "MCMC Tuning"),
                            numericInput("mcmc_chains",     "Number of chains:",          value = 4, min = 1, max = 16),
@@ -509,12 +489,10 @@ ui <- dashboardPage(
                                     "• Use parallel_chains = number of available CPU cores"
                            )
                     ),
-                    # -- Middle column: settings summary ---------------------------
                     column(4,
                            tags$div(class = "sec-hdr", "Settings to be embedded in script"),
                            uiOutput("mcmc_script_summary_ui")
                     ),
-                    # -- Right column: generate + download -------------------------
                     column(4,
                            tags$div(class = "sec-hdr", "Generate & Download"),
                            tags$p(style = "font-size:14px;color:#555;",
@@ -537,7 +515,6 @@ ui <- dashboardPage(
                     )
                   ),
                   
-                  # Script preview panel
                   conditionalPanel("input.preview_mcmc_script > 0",
                                    tags$hr(),
                                    tags$div(class = "sec-hdr", "Script Preview (first 120 lines)"),
@@ -571,9 +548,6 @@ ui <- dashboardPage(
               )
       ),
       
-      # ══════════════════════════════════════════════════════════════════════
-      # TAB 4  POST-HARMONIZATION  (unchanged)
-      # ══════════════════════════════════════════════════════════════════════
       tabItem(tabName = "post_diag",
               fluidRow(
                 box(width = 12, solidHeader = TRUE, title = "Post-Harmonization Diagnostics",
@@ -649,10 +623,7 @@ ui <- dashboardPage(
                 )
               )
       ),
-      
-      # ══════════════════════════════════════════════════════════════════════
-      # TAB 5  EB DIAGNOSTICS  (unchanged)
-      # ══════════════════════════════════════════════════════════════════════
+  
       tabItem(tabName = "eb_diag",
               conditionalPanel(
                 "input.harm_eb",
@@ -692,16 +663,11 @@ ui <- dashboardPage(
               )
       ),
       
-      # ══════════════════════════════════════════════════════════════════════
-      # TAB 6  COVARIANCE DIAGNOSTICS  (unchanged)
-      # ══════════════════════════════════════════════════════════════════════
       tabItem(tabName = "cov_diag",
               uiOutput("cov_diag_panel")
       ),
       
-      # ══════════════════════════════════════════════════════════════════════
-      # TAB 7  BAYESIAN MCMC DIAGNOSTICS  — NEW
-      # ══════════════════════════════════════════════════════════════════════
+
       tabItem(tabName = "mcmc_diag",
               fluidRow(
                 box(title = tags$span(icon("atom"), " Bayesian MCMC Diagnostics"),
@@ -737,7 +703,6 @@ ui <- dashboardPage(
                              uiOutput("mcmc_overview_ui"),
                              uiOutput("mcmc_metric_filter_ui"),
                              tags$hr(),
-                             # Convergence traffic-light cards
                              tags$div(class = "sec-hdr", "Convergence at a Glance"),
                              fluidRow(uiOutput("mcmc_conv_cards_ui"))
                       )
@@ -747,8 +712,6 @@ ui <- dashboardPage(
               
               fluidRow(
                 tabBox(title = "Diagnostic Panels", width = 12,
-                       
-                       # ── R-hat / ESS table ──────────────────────────────────────────
                        tabPanel("R-hat & ESS",
                                 tags$p(style = "font-size:15px;color:#666;margin:0 0 8px;",
                                        "R-hat < 1.01 (excellent) / < 1.05 (acceptable) / ≥ 1.05 (poor). ",
@@ -767,8 +730,7 @@ ui <- dashboardPage(
                                 tags$br(),
                                 DTOutput("rhat_tbl")
                        ),
-                       
-                       # ── Trace plots ────────────────────────────────────────────────
+                    
                        tabPanel("Trace Plots",
                                 tags$p(style = "font-size:15px;color:#666;margin:0 0 8px;",
                                        "Trace plots show chain mixing. Good chains look like 'fuzzy caterpillars'."),
@@ -789,7 +751,6 @@ ui <- dashboardPage(
                                 plotOutput("trace_plot", height = "480px")
                        ),
                        
-                       # ── Combined posterior summaries and evidence ───────────────────────
                        tabPanel("Posterior Summaries & Evidence",
                                 tags$p(
                                   style = "font-size:15px;color:#666;margin:0 0 8px;",
@@ -848,9 +809,7 @@ ui <- dashboardPage(
   )
 )
 
-# =============================================================================
-#  SERVER
-# =============================================================================
+
 server <- function(input, output, session) {
   
   # ── Central reactive store ─────────────────────────────────────────────────
@@ -868,14 +827,13 @@ server <- function(input, output, session) {
     post_diag = NULL, post_pca = NULL, post_tests = NULL, post_mv = NULL,
     post_rf_auc = NULL,
     cov_plot = NULL,
-    # MCMC specific
-    mcmc_fit_list  = NULL,   # list of loaded RDS objects (length m for uni, length 1 for multi)
-    mcmc_draws_list = NULL,   # list of stored posterior draws_df objects extracted from uploaded RDS
-    mcmc_summary   = NULL,   # combined data.frame extracted from saved summaries or fit$summary()
-    mcmc_mode      = NULL,   # "uni" | "multi"
+    mcmc_fit_list  = NULL,   
+    mcmc_draws_list = NULL,   
+    mcmc_summary   = NULL,   
+    mcmc_mode      = NULL,   
     mcmc_m         = NULL,
-    mcmc_harm_data = NULL,   # harmonized data extracted from uploaded Stan/MCMC RDS
-    mcmc_script_txt = NULL   # generated script text
+    mcmc_harm_data = NULL,   
+    mcmc_script_txt = NULL  
   )
   
   is_long <- reactive({ isTRUE(rv$is_longitudinal) })
@@ -969,12 +927,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # =============================================================================
-  # MCMC diagnostic helper functions
-  # These make the Bayesian diagnostic panels robust to different Stan parameter
-  # naming conventions and to different RDS object structures.
-  # =============================================================================
-  
+
   has_cmdstan_summary <- function(x) {
     ok <- FALSE
     try(ok <- is.function(x$summary), silent = TRUE)
@@ -1003,9 +956,6 @@ server <- function(input, output, session) {
   }
   
   extract_mcmc_summary <- function(x, max_depth = 5) {
-    # Prefer summaries saved directly inside the RDS. This is more robust for
-    # terminal/Rscript runs because CmdStan CSV files referenced by the fit object
-    # may be temporary and unavailable after the R session exits.
     if (max_depth < 0 || is.null(x)) return(NULL)
     if (is.data.frame(x)) return(standardize_mcmc_summary(x))
     if (is.list(x)) {
@@ -1163,9 +1113,6 @@ server <- function(input, output, session) {
     invisible(TRUE)
   }
   
-  # ──────────────────────────────────────────────────────────────────────────
-  # SIDEBAR INFO
-  # ──────────────────────────────────────────────────────────────────────────
   output$sidebar_info <- renderUI({
     if (is.null(rv$data_list))
       return(tags$span(style = "color:#e67e22;", "No data loaded"))
@@ -1184,9 +1131,6 @@ server <- function(input, output, session) {
     tags$div(lines)
   })
   
-  # ══════════════════════════════════════════════════════════════════════════
-  # 1. DATA SETUP  (all unchanged from original)
-  # ══════════════════════════════════════════════════════════════════════════
   
   observeEvent(input$gen_demo, {
     d <- if (input$demo_type == "long") {
@@ -1543,7 +1487,6 @@ server <- function(input, output, session) {
     n_bat   <- length(batches)
     pal     <- safe_discrete_palette(batches)
     
-    # Shared clean axis: no titles, no tick labels, no grid lines
     clean_axis <- list(
       title          = "",
       showticklabels = FALSE,
@@ -1557,7 +1500,6 @@ server <- function(input, output, session) {
       v     <- cov_plot[[vname]]
       
       if (is.numeric(v)) {
-        # Single plot_ly + add_boxplot() per batch — one axis, clean_axis applies fully
         p <- plotly::plot_ly()
         for (bi in seq_along(batches)) {
           b    <- batches[bi]
@@ -1588,16 +1530,14 @@ server <- function(input, output, session) {
         )
         
       } else {
-        # Percentage stacked bar — each bar sums to 100%
         v_chr   <- as.character(v)
         cats    <- sort(unique(v_chr[!is.na(v_chr)]))
         cat_pal <- safe_discrete_palette(cats, palette = "Pastel 1")
         
-        # Pre-compute counts and totals per batch for percentage calculation
         count_mat <- sapply(batches, function(b)
           sapply(cats, function(cat_i)
             sum(v_chr[as.character(bat_plot) == b] == cat_i, na.rm = TRUE)))
-        # count_mat: rows = cats, cols = batches
+
         totals <- colSums(count_mat)
         
         p <- plotly::plot_ly()
@@ -1847,9 +1787,6 @@ server <- function(input, output, session) {
       p <- p + geom_point(alpha = 0.45, size = 1.8, color = "#2e4c8a")
     }
     
-    # The smooth layers intentionally use group = 1. This shows the overall
-    # covariate-feature trend and prevents batch coloring from being inherited
-    # as separate smoothing groups in some ggplot/Shiny environments.
     if (input$trend_smooth == "lm") {
       p <- p + geom_smooth(aes(group = 1), method = "lm", formula = y ~ x,
                            color = "#c0392b", linewidth = 1.1,
@@ -1968,9 +1905,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # ══════════════════════════════════════════════════════════════════════════
-  # SHARED DIAGNOSTIC HELPERS  (unchanged)
-  # ══════════════════════════════════════════════════════════════════════════
   diag_test_param <- reactive({
     if (!is.null(rv$random_var)) list(random = rv$random_var) else list()
   })
@@ -2015,9 +1949,6 @@ server <- function(input, output, session) {
            fk    = tests$fk[[i]]$test_table)
   }
   
-  # ══════════════════════════════════════════════════════════════════════════
-  # 2. PRE-HARMONIZATION  (unchanged from original)
-  # ══════════════════════════════════════════════════════════════════════════
   observeEvent(input$run_pre_diag, {
     req(rv$data_list, rv$bat_list, rv$config_ok)
     withProgress(message = "Pre-harmonization diagnostics…", {
@@ -2054,9 +1985,6 @@ server <- function(input, output, session) {
     })
   })
   
-  # ---- PCA view controls -------------------------------------------------
-  # For a single-metric dataset, shared-space PCA is not meaningful.
-  # Hide/disable the shared-space option and use within-modality PCA internally.
   pca_type_use <- function(x) {
     if (!is.null(rv$m) && rv$m <= 1) "within" else (x %||% "within")
   }
@@ -2123,13 +2051,7 @@ server <- function(input, output, session) {
   output$pre_modsel_ui <- renderUI({ m <- safe_m_value(rv$m); req(!is.null(m)); selectInput("pre_modsel", "Modality:", choices = setNames(seq_len(m), paste0("M",seq_len(m))), selected = 1) })
   
   detect_outliers <- function(resid_mat, bat, feat) {
-    # Detect regular and extreme Tukey outliers within each batch.
-    #
-    # Important plotting note:
-    #   The outlier rule here is batch-specific and value-based:
-    #     regular: value < Q1 - 1.5*IQR or value > Q3 + 1.5*IQR
-    #     extreme: value < Q1 - 3.0*IQR or value > Q3 + 3.0*IQR
-    #   It is NOT based on |residual|.
+
     if (!feat %in% colnames(resid_mat)) return(NULL)
     
     sids <- rownames(resid_mat) %||% paste0("S", seq_len(nrow(resid_mat)))
@@ -2182,9 +2104,6 @@ server <- function(input, output, session) {
   }
   
   brewer_hex <- function(palette, n) {
-    # Kept for backward compatibility with internal plotting helpers, but make it
-    # safe for n > Brewer palette limits and for environments that handle Brewer
-    # warnings/errors differently.
     pal <- switch(palette,
                   "Pastel1" = "Pastel 1",
                   "Pastel2" = "Pastel 2",
@@ -2201,7 +2120,6 @@ server <- function(input, output, session) {
   ) {
     if (!feat %in% colnames(resid_mat)) return(NULL)
     
-    # character(0) = user unchecked everything = show no outliers
     show_outliers <- intersect(as.character(show_outliers), c("regular", "extreme"))
     show_regular  <- "regular" %in% show_outliers
     show_extreme  <- "extreme" %in% show_outliers
@@ -2273,7 +2191,6 @@ server <- function(input, output, session) {
         "<br>1.5×IQR fence: [", round(st$lower15, 4), ", ", round(st$upper15, 4), "]"
       )
       
-      # Box rectangle
       p <- p %>%
         plotly::add_trace(
           type      = "scatter", mode = "lines",
@@ -2292,7 +2209,6 @@ server <- function(input, output, session) {
           showlegend = TRUE
         )
       
-      # Median line
       p <- p %>%
         plotly::add_segments(
           x = x - box_width/2, xend = x + box_width/2,
@@ -2301,7 +2217,6 @@ server <- function(input, output, session) {
           hoverinfo = "skip", showlegend = FALSE
         )
       
-      # Lower whisker
       p <- p %>%
         plotly::add_segments(
           x = x, xend = x,
@@ -2310,7 +2225,6 @@ server <- function(input, output, session) {
           hoverinfo = "skip", showlegend = FALSE
         )
       
-      # Upper whisker
       p <- p %>%
         plotly::add_segments(
           x = x, xend = x,
@@ -2319,7 +2233,6 @@ server <- function(input, output, session) {
           hoverinfo = "skip", showlegend = FALSE
         )
       
-      # Lower cap
       p <- p %>%
         plotly::add_segments(
           x = x - cap_width/2, xend = x + cap_width/2,
@@ -2328,7 +2241,6 @@ server <- function(input, output, session) {
           hoverinfo = "skip", showlegend = FALSE
         )
       
-      # Upper cap
       p <- p %>%
         plotly::add_segments(
           x = x - cap_width/2, xend = x + cap_width/2,
@@ -2338,7 +2250,6 @@ server <- function(input, output, session) {
         )
     }
     
-    # Optional jittered raw points — exclude unchecked outlier types
     if (isTRUE(jitter)) {
       set.seed(1)
       df_jit <- df[
@@ -2366,7 +2277,6 @@ server <- function(input, output, session) {
       }
     }
     
-    # Highlighted outliers — only the checked types
     out_df <- df[
       !is.na(df$OutType) & (
         (df$OutType == "regular" & show_regular) |
@@ -2581,11 +2491,6 @@ server <- function(input, output, session) {
     
     df <- as.data.frame(df, stringsAsFactors = FALSE, check.names = FALSE)
     
-    # Be defensive: tests_to_df() should return the internal names above, but after
-    # some table-rendering steps the same results may have display names such as
-    # ANOVA/Kruskal/Levene/Bartlett/Fligner.  If the expected names are not present,
-    # use the first five columns and reset them to the internal names.  This prevents
-    # a one-metric heatmap from producing a single x-axis level called NA.
     if (!all(test_cols %in% names(df))) {
       validate(need(ncol(df) >= length(test_cols), "Univariate test table has fewer than five test columns."))
       df <- df[, seq_along(test_cols), drop = FALSE]
@@ -2600,8 +2505,6 @@ server <- function(input, output, session) {
       suppressWarnings(as.numeric(x))
     }
     
-    # Important: do not use apply() here. With one modality, apply() can
-    # simplify the one-row data frame into a vector and break the heatmap shape.
     num_df <- as.data.frame(lapply(df, parse_pct), check.names = FALSE)
     names(num_df) <- test_cols
     
@@ -2640,9 +2543,6 @@ server <- function(input, output, session) {
             legend.margin = margin(l = 8),
             plot.margin = margin(t = 16, r = 20, b = 16, l = 20))
     
-    # For multiple metrics, fixed coordinates make square heatmap cells easier to read.
-    # For one metric, fixed coordinates make a single row look visually disconnected
-    # from the summary table, so use a free rectangular layout.
     if (!one_metric) {
       p <- p + coord_fixed(ratio = 0.9)
     }
@@ -2971,9 +2871,6 @@ server <- function(input, output, session) {
     })
   })
   
-  # ══════════════════════════════════════════════════════════════════════════
-  # 3. HARMONIZATION — EB run + MCMC Script Generation  (NEW section added)
-  # ══════════════════════════════════════════════════════════════════════════
   observeEvent(input$run_harm, {
     req(rv$data_list, rv$bat_list, rv$config_ok)
     harm_mode_use <- if (!has_multi_metric()) "uni" else (input$harm_mode %||% "multi")
@@ -3022,7 +2919,6 @@ server <- function(input, output, session) {
                        if (isTRUE(rv$harm$eb_enabled)) "on" else "off", ")"))
   })
   
-  # ── MCMC script settings summary ──────────────────────────────────────────
   mcmc_effective_formula <- reactive({
     base_txt   <- if (!is.null(input$formula_txt) && nchar(trimws(input$formula_txt)) > 0)
       trimws(input$formula_txt) else "y ~ 1"
@@ -3067,7 +2963,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # ── Generate script (reactive, triggered by button or settings change) ────
   mcmc_script_reactive <- eventReactive(input$preview_mcmc_script, {
     harm_mode_use <- if (!has_multi_metric()) "uni" else (input$harm_mode %||% "multi")
     harm_cov_use  <- if (!has_multi_metric()) FALSE else isTRUE(input$harm_cov)
@@ -3102,7 +2997,6 @@ server <- function(input, output, session) {
     )
   }, ignoreNULL = TRUE)
   
-  # Preview (first 120 lines, syntax highlighted monospace)
   output$mcmc_script_preview_ui <- renderUI({
     txt <- tryCatch(mcmc_script_reactive(), error = function(e)
       paste("Error generating script:", e$message))
@@ -3113,7 +3007,6 @@ server <- function(input, output, session) {
     tags$pre(style = "margin:0;color:#cdd6f4;", preview)
   })
   
-  # Download button — only shown after first preview click
   output$mcmc_dl_ui <- renderUI({
     if (input$preview_mcmc_script == 0) return(NULL)
     downloadButton("dl_mcmc_project", "Download MCMC Project Folder (.zip)",
@@ -3140,7 +3033,6 @@ server <- function(input, output, session) {
       dir.create(file.path(project_dir, "results", "harmonized"), recursive = TRUE, showWarnings = FALSE)
       dir.create(file.path(project_dir, "results", "stan_fits"), recursive = TRUE, showWarnings = FALSE)
       
-      # Save one feature matrix per modality to data/
       m <- safe_m_value(rv$m); req(!is.null(m))
       for (i in seq_len(m)) {
         write.csv(
@@ -3150,14 +3042,12 @@ server <- function(input, output, session) {
         )
       }
       
-      # Save shared batch labels to data/
       write.csv(
         data.frame(batch = as.character(rv$bat_list[[1]])),
         file = file.path(project_dir, "data", "batch_labels.csv"),
         row.names = FALSE
       )
       
-      # Save shared covariates to data/. If missing, create an intercept-only placeholder.
       covar_to_write <- if (!is.null(rv$covar_list) && !is.null(rv$covar_list[[1]])) {
         rv$covar_list[[1]]
       } else {
@@ -3169,12 +3059,10 @@ server <- function(input, output, session) {
         row.names = FALSE
       )
       
-      # Save the generated MCMC script to R/
       txt <- tryCatch(mcmc_script_reactive(), error = function(e)
         paste("# Error generating script:", e$message))
       writeLines(txt, file.path(project_dir, "R", "run_mcmc_harmonization.R"))
       
-      # Add a README so users know how to run the project
       readme_txt <- c(
         "# HarmonizeR MCMC Project",
         "",
@@ -3203,7 +3091,6 @@ server <- function(input, output, session) {
       )
       writeLines(readme_txt, file.path(project_dir, "README.md"))
       
-      # Zip the whole project folder. Prefer zip::zipr(); fall back to utils::zip().
       old_wd <- getwd()
       on.exit(setwd(old_wd), add = TRUE)
       setwd(dirname(project_dir))
@@ -3217,12 +3104,9 @@ server <- function(input, output, session) {
     contentType = "application/zip"
   )
   
-  # ── EB availability guard ─────────────────────────────────────────────
   eb_available <- reactive({
     if (is.null(rv$harm) || is.null(rv$harm$eb_result)) return(FALSE)
     
-    # New harmonization runs store whether EB was enabled.
-    # If an older object lacks this flag, fall back to checking eb_result.
     if (!is.null(rv$harm$eb_enabled) && !isTRUE(rv$harm$eb_enabled)) {
       return(FALSE)
     }
@@ -3235,7 +3119,6 @@ server <- function(input, output, session) {
     !is.null(eb)
   })
   
-  # ── EB shrinkage plot and BA plot (unchanged) ─────────────────────────────
   output$eb_shrink_mod_ui <- renderUI({
     req(eb_available())
     m <- safe_m_value(rv$m); req(!is.null(m))
@@ -3459,9 +3342,6 @@ server <- function(input, output, session) {
     }))
   })
   
-  # ══════════════════════════════════════════════════════════════════════════
-  # 4. POST-HARMONIZATION  (unchanged)
-  # ══════════════════════════════════════════════════════════════════════════
   observeEvent(input$run_post_diag, {
     req(rv$harm, rv$config_ok)
     withProgress(message="Post-harmonization diagnostics…", {
@@ -3501,10 +3381,6 @@ server <- function(input, output, session) {
           rv$post_rf_auc <- NULL
         }
         
-        # MANOVA / Box's M require multiple response variables. When the active
-        # dataset has only one imaging metric/modality, skip multivariate testing
-        # rather than calling mul_test(), which otherwise raises:
-        # "need multiple responses".
         if (has_multi_metric()) {
           rv$post_mv <- mul_test(rv$bat_list, harm_data, rv$covar_list,
                                  model=rv$model_fn, formula=rv$formula_obj,
@@ -3705,26 +3581,11 @@ server <- function(input, output, session) {
   output$post_box_mul_before <- renderPlot({ req(rv$pre_diag,input$post_feat,input$post_mod); i<-as.integer(input$post_mod); print(post_box(rv$pre_diag[[i]]$resid_mul,rv$bat_list[[i]],input$post_feat,"Before",fill_pal="Pastel2",jitter=isTRUE(input$post_box_jitter))) }, bg="white")
   output$post_box_mul_after  <- renderPlot({ req(rv$post_diag,input$post_feat,input$post_mod); i<-as.integer(input$post_mod); print(post_box(rv$post_diag[[i]]$resid_mul,rv$bat_list[[i]],input$post_feat,"After",fill_pal="Pastel2",jitter=isTRUE(input$post_box_jitter))) }, bg="white")
   
-  # ══════════════════════════════════════════════════════════════════════════
-  # 5. EB DIAGNOSTICS
-  #    If a reference batch is used, hide that batch from EB diagnostic display.
-  #
-  #    Important implementation detail:
-  #    Do NOT remove the reference batch before calling eb_check()/eb_plot().
-  #    Some EB plotting internals label batches positionally. If we drop batch A
-  #    from the EB object first, the original A values can be relabeled as B.
-  #    Therefore we always run eb_check()/eb_plot() on the original fitted EB
-  #    object, then filter the plotted data and summary table by the true batch
-  #    label afterward.
-  # ══════════════════════════════════════════════════════════════════════════
-  
-  # ---- Helper: current reference batch -----------------------------------
   eb_ref_batch <- reactive({
     ref <- rv$ref_batch %||% NULL
     if (is.null(ref) || identical(ref, "") || is.na(ref)) NULL else as.character(ref)
   })
   
-  # ---- Helper: display batches = all batches except reference batch --------
   eb_display_batches <- reactive({
     req(rv$batch_levels)
     batches <- as.character(rv$batch_levels)
@@ -3737,12 +3598,9 @@ server <- function(input, output, session) {
     batches
   })
   
-  # ---- Helper: get original EB object -------------------------------------
-  # This returns the EB object exactly as fitted, without dropping/relabeling.
   eb_selected_mod_index <- reactive({
     req(rv$m)
     
-    # Single-metric data always use M1 internally; no selector is displayed.
     if (rv$m <= 1) {
       return(1L)
     }
@@ -3760,9 +3618,6 @@ server <- function(input, output, session) {
     }
   })
   
-  # ---- Helper: attach batch labels when EB objects are unlabeled -----------
-  # This is only for table calculations. It prevents accidental positional
-  # relabeling after a reference batch is removed.
   add_batch_labels_if_needed <- function(x, batch_levels) {
     if (is.null(x)) return(x)
     batch_levels <- as.character(batch_levels)
@@ -3796,7 +3651,6 @@ server <- function(input, output, session) {
     x
   }
   
-  # ---- Helper: drop reference batch from a labeled object ------------------
   drop_ref_by_label <- function(x, ref, batch_levels = NULL) {
     if (is.null(x) || is.null(ref)) return(x)
     
@@ -3816,13 +3670,9 @@ server <- function(input, output, session) {
       return(x[setdiff(names(x), ref)])
     }
     
-    # If no reliable label exists, do not drop by position.
-    # Dropping by position is exactly what can cause the A-as-B problem.
     x
   }
   
-  # ---- Helper: filter a ggplot object by the true reference batch label ----
-  # Works after eb_plot() creates the plot from the original EB object.
   remove_ref_from_plot_data <- function(p, ref) {
     if (is.null(p) || is.null(ref)) return(p)
     
@@ -3882,18 +3732,9 @@ server <- function(input, output, session) {
     p
   }
   
-  # ---- Batch selector: only show/use it for δ view ------------------------
-  # Important: the γ plot should not depend on input$eb_batch. If this UI is
-  # always shown and output$eb_plot reads input$eb_batch, changing the δ batch
-  # selector will also redraw/change the γ plot. Therefore this selector is
-  # hidden for γ and used only when input$eb_parm == "delta".
   output$eb_controls_ui <- renderUI({
     req(eb_available())
     
-    # In the single-metric/univariate case, the package eb_plot.univariate()
-    # already displays both gamma and delta facets, and the δ density is not
-    # controlled by a batch argument. Therefore parameter and batch selectors
-    # are hidden to avoid implying that they change the plot.
     if (!is.null(rv$m) && rv$m <= 1 && identical(rv$harm$mode, "uni")) {
       return(
         fluidRow(
@@ -3974,13 +3815,11 @@ server <- function(input, output, session) {
   
   output$eb_mod_control_ui <- renderUI({
     req(eb_available(), rv$m)
-    
-    # For one metric, M1 is used internally and the selector is unnecessary.
+
     if (rv$m <= 1) {
       return(NULL)
     }
     
-    # Only show the modality selector for univariate harmonization with >1 metrics.
     if (!identical(input$harm_mode, "uni")) {
       return(NULL)
     }
@@ -4037,8 +3876,6 @@ server <- function(input, output, session) {
       chk <- eb_check(eb)
       ref <- eb_ref_batch()
       
-      # Single-metric/univariate eb_plot() from MultiComBat always facets both
-      # gamma and delta from eb_df$eb_df. Do not pass parameter/batch controls here.
       if (!is.null(rv$m) && rv$m <= 1 && identical(rv$harm$mode, "uni")) {
         p <- eb_plot(chk)
         p <- remove_ref_from_plot_data(p, ref)
@@ -4199,7 +4036,6 @@ server <- function(input, output, session) {
         }
       }
       
-      # Final safety filter by label only.
       if (!is.null(ref) && "Batch" %in% names(df)) {
         df <- df[df$Batch != ref, , drop = FALSE]
       }
@@ -4293,10 +4129,6 @@ server <- function(input, output, session) {
     make_eb_shrink_dt(parm)
   })
   
-
-  # ══════════════════════════════════════════════════════════════════════════
-  # 6. COVARIANCE DIAGNOSTICS  (unchanged)
-  # ══════════════════════════════════════════════════════════════════════════
   output$cov_diag_panel <- renderUI({
     if (!has_multi_metric()) {
       return(
@@ -4475,11 +4307,7 @@ server <- function(input, output, session) {
             panel.grid.major.y=element_line(color="#eee",linewidth=.3))
   }, bg="white")
   
-  # ══════════════════════════════════════════════════════════════════════════
-  # 7. BAYESIAN MCMC DIAGNOSTICS  — NEW SERVER CODE
-  # ══════════════════════════════════════════════════════════════════════════
-  
-  # ── Dynamic upload UI for multiple univariate RDS files ──────────────────
+
   output$mcmc_upload_mode_ui <- renderUI({
     current_m <- rv$m %||% 1L
     current_m <- as.integer(current_m)
@@ -4538,7 +4366,6 @@ server <- function(input, output, session) {
     }
   })
   
-  # ── Dynamic upload UI for univariate RDS files ───────────────────────────
   output$mcmc_upload_ui_uni <- renderUI({
     active_m <- rv$m %||% input$mcmc_upload_m %||% 1L
     active_m <- as.integer(active_m)
@@ -4547,7 +4374,6 @@ server <- function(input, output, session) {
     m <- as.integer(input$mcmc_upload_m %||% active_m)
     if (is.na(m) || m < 1) m <- active_m
     
-    # If the active dataset has only one metric, force exactly one upload box.
     if (!is.null(rv$m) && rv$m == 1L) m <- 1L
     
     tagList(
@@ -4575,7 +4401,6 @@ server <- function(input, output, session) {
     invisible(NULL)
   }
   
-  # ── Load MCMC results ─────────────────────────────────────────────────────
   observeEvent(input$load_mcmc, {
     withProgress(message = "Loading MCMC results…", {
       tryCatch({
@@ -4585,8 +4410,6 @@ server <- function(input, output, session) {
         
         upload_mode_use <- input$mcmc_upload_mode %||% "uni"
         
-        # Critical guard: if the active dataset has only one metric,
-        # never allow multivariate upload mode even if a stale UI value remains.
         if (active_m == 1L) upload_mode_use <- "uni"
         
         if (upload_mode_use == "multi") {
@@ -4598,8 +4421,7 @@ server <- function(input, output, session) {
           rv$mcmc_draws_list <- list(extract_posterior_draws(obj))
           rv$mcmc_mode       <- "multi"
           rv$mcmc_m          <- 1L
-          
-          # Prefer summaries saved directly inside the RDS; if missing, reconstruct from posterior_draws.
+
           smry <- extract_mcmc_summary(obj)
           smry <- repair_mcmc_summary_from_draws(obj, smry)
           rv$mcmc_summary <- smry
@@ -4639,7 +4461,6 @@ server <- function(input, output, session) {
           rv$mcmc_mode       <- "uni"
           rv$mcmc_m          <- m
           
-          # Build combined summary across modalities. If missing, reconstruct from posterior_draws.
           all_smry <- lapply(seq_len(m), function(i) {
             smry_i <- extract_mcmc_summary(fit_list[[i]])
             smry_i <- repair_mcmc_summary_from_draws(fit_list[[i]], smry_i)
@@ -4648,7 +4469,6 @@ server <- function(input, output, session) {
           })
           rv$mcmc_summary <- do.call(rbind, Filter(Negate(is.null), all_smry))
           
-          # For univariate uploads, each RDS should contain one modality-specific harm_data.
           harm_list <- lapply(seq_len(m), function(i) {
             h_i <- extract_harm_data_from_mcmc_export(fit_list[[i]])
             if (is.null(h_i) || length(h_i) < 1) {
@@ -4658,9 +4478,6 @@ server <- function(input, output, session) {
               ))
             }
             
-            # Robust handling:
-            # univariate export may save harm_data as a data.frame/matrix,
-            # while multivariate export saves harm_data as a list.
             if (is.data.frame(h_i) || is.matrix(h_i)) {
               as.data.frame(h_i, check.names = FALSE)
             } else if (is.list(h_i) && length(h_i) == 1) {
@@ -4688,7 +4505,6 @@ server <- function(input, output, session) {
     })
   })
   
-  # ── Metric-specific view for univariate MCMC output ─────────────────────
   output$mcmc_metric_filter_ui <- renderUI({
     if (is.null(rv$mcmc_summary) || !identical(rv$mcmc_mode, "uni") || is.null(rv$mcmc_m) || rv$mcmc_m <= 1) {
       return(NULL)
@@ -4721,7 +4537,6 @@ server <- function(input, output, session) {
     smry
   })
   
-  # ── Load status badge ─────────────────────────────────────────────────────
   output$mcmc_load_status_ui <- renderUI({
     if (is.null(rv$mcmc_summary) && is.null(rv$mcmc_fit_list))
       return(tags$span(style = "color:#e67e22;font-weight:600;", "No results loaded yet."))
@@ -4739,7 +4554,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # ── Overview cards ────────────────────────────────────────────────────────
   output$mcmc_overview_ui <- renderUI({
     smry <- mcmc_active_summary()
     if (is.null(smry)) return(tags$p(style = "color:#888;", "Load results to see overview."))
@@ -4767,7 +4581,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # ── Convergence traffic-light cards ──────────────────────────────────────
   output$mcmc_conv_cards_ui <- renderUI({
     smry <- mcmc_active_summary()
     if (is.null(smry) || !"rhat" %in% colnames(smry))
@@ -4795,7 +4608,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # ── Dynamically update parameter-family filter choices ────────────────────
   observe({
     smry <- mcmc_active_summary(); req(!is.null(smry), "variable" %in% colnames(smry))
     families <- unique(sub("\\[.*","", smry$variable))
@@ -4803,7 +4615,6 @@ server <- function(input, output, session) {
     updateSelectInput(session, "rhat_param_filter", choices = families, selected = "All")
   })
   
-  # ── R-hat plot ─────────────────────────────────────────────────────────────
   output$rhat_plot <- plotly::renderPlotly({
     smry <- mcmc_active_summary(); req(!is.null(smry))
     if (!"rhat" %in% colnames(smry)) {
@@ -4869,8 +4680,7 @@ server <- function(input, output, session) {
     dt
   })
   
-  
-  # ── Trace plot helper: skip deterministic / constrained entries ─────────────
+
   filter_informative_draw_columns <- function(draws_df, param_cols, min_sd = 1e-8) {
     if (is.null(draws_df) || length(param_cols) == 0) return(character(0))
     
@@ -4891,8 +4701,6 @@ server <- function(input, output, session) {
     keep <- sapply(param_cols, function(v) {
       idx <- extract_stan_indices(v)
       
-      # For L_R_ig[i, g, row, col], row and col are the last two indices.
-      # Free Cholesky-correlation entries satisfy row > col.
       if (length(idx) < 2) return(TRUE)
       
       row_idx <- idx[length(idx) - 1]
@@ -4905,9 +4713,7 @@ server <- function(input, output, session) {
   }
   
   get_matrix_entry_type <- function(vars) {
-    # Classify Stan matrix-like variables by the last two indices.
-    # For L_R_ig[i,g,row,col] and L_Sigma_ig[i,g,row,col], the last two
-    # indices are the Cholesky row and column positions.
+
     sapply(vars, function(v) {
       idx <- extract_stan_indices(v)
       if (length(idx) < 2) return("unknown")
@@ -4921,10 +4727,7 @@ server <- function(input, output, session) {
   }
   
   filter_posterior_summary_entries <- function(df, family, entry_filter = "auto", min_sd = 1e-8) {
-    # Avoid posterior evidence plots being dominated by deterministic entries
-    # such as fixed Cholesky zeros/ones. This is especially important for
-    # L_R_ig, where L_R_ig[...,1,1] is structurally 1 and upper-triangular
-    # entries are fixed to 0.
+
     if (is.null(df) || nrow(df) == 0 || !"variable" %in% colnames(df)) return(df)
     
     out <- df
@@ -4941,9 +4744,6 @@ server <- function(input, output, session) {
     } else if (grepl("^L_Sigma", family)) {
       entry_type <- get_matrix_entry_type(out$variable)
       out$entry_type <- entry_type
-      # L_Sigma_ig is a transformed Cholesky covariance factor. By default,
-      # show off-diagonal entries because these are the covariance/correlation
-      # structure components; diagonal entries mostly reflect marginal scale.
       if (identical(entry_filter, "diag")) {
         out <- out[entry_type == "diagonal", , drop = FALSE]
       } else if (identical(entry_filter, "all_lower")) {
@@ -4973,16 +4773,9 @@ server <- function(input, output, session) {
     ""
   }
   
-  # ── Trace plots ─────────────────────────────────────────────────────────────
   output$trace_param_ui <- renderUI({
     smry <- mcmc_active_summary()
     if (is.null(smry)) return(NULL)
-    
-    # Prefer parameter families that actually exist in saved posterior_draws.
-    # In lightweight uploads, mcmc_summary may contain large generated quantities
-    # such as y_rep, but posterior_draws intentionally excludes them to keep
-    # the upload file small. Showing only draw-backed families avoids confusing
-    # "No saved posterior draws found" messages in the Trace Plot tab.
     draws_obj <- NULL
     
     if (identical(rv$mcmc_mode, "uni")) {
@@ -5003,7 +4796,6 @@ server <- function(input, output, session) {
       all_vars <- unique(get_param_family(draw_names))
       all_vars <- all_vars[!is.na(all_vars) & nzchar(all_vars)]
     } else {
-      # Fallback for full uploads or legacy objects without saved posterior_draws.
       all_vars <- sort(unique(sub("\\[.*", "", smry$variable)))
     }
     
@@ -5056,10 +4848,7 @@ server <- function(input, output, session) {
       if (is.na(mod_idx) || mod_idx < 1 || mod_idx > length(rv$mcmc_fit_list)) mod_idx <- 1L
       
       draws_df <- NULL
-      
-      # Prefer posterior draws saved directly inside the uploaded RDS. This is
-      # robust to terminal/Rscript runs where CmdStan CSV files may have been
-      # written to a temporary directory that no longer exists.
+
       if (!is.null(rv$mcmc_draws_list) && length(rv$mcmc_draws_list) >= mod_idx) {
         draws_df <- rv$mcmc_draws_list[[mod_idx]]
       }
@@ -5072,17 +4861,11 @@ server <- function(input, output, session) {
         if (length(param_cols) == 0) {
           stop("No saved posterior draws found for selected parameter family: ", input$trace_param)
         }
-        
-        # Cholesky correlation factors contain many deterministic entries
-        # (e.g., structural zeros / ones). For L_R_ig, keep only free
-        # lower-triangular entries before checking posterior variation.
+
         if (identical(input$trace_param, "L_R_ig") || grepl("^L_R", input$trace_param)) {
           param_cols <- keep_free_cholesky_entries(param_cols)
         }
-        
-        # Remove deterministic or near-deterministic entries before selecting
-        # the first few columns. This prevents fixed Cholesky entries from
-        # producing a misleading "not informative" message.
+
         param_cols <- filter_informative_draw_columns(draws_df, param_cols)
         
         if (length(param_cols) == 0) {
@@ -5152,10 +4935,6 @@ server <- function(input, output, session) {
     })
   }, bg = "white")
   
-  # ── Posterior Evidence ─────────────────────────────────────────────────────
-  # This replaces the earlier prior-vs-posterior density overlay. It is more useful
-  # for diagnostics because it ranks selected parameters by posterior evidence,
-  # uncertainty, and convergence diagnostics.
   guess_mcmc_family <- function(smry, semantic = c("gamma", "delta", "other")) {
     semantic <- match.arg(semantic)
     families <- detect_mcmc_families(smry)
@@ -5216,9 +4995,7 @@ server <- function(input, output, session) {
     
     out$ci_width <- out$ci_high - out$ci_low
     out$ci_excludes_zero <- out$ci_low > 0 | out$ci_high < 0
-    
-    # Approximate posterior probabilities using Normal(mean, sd) summaries.
-    # If full draws are exposed later, this can be upgraded to empirical draw-based probabilities.
+
     out$prob_gt_0 <- ifelse(
       is.na(out$sd) | out$sd <= 0,
       NA_real_,
@@ -5438,7 +5215,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # ── Shrinkage diagnostics ─────────────────────────────────────────────────
   output$shrink_mod_ui <- renderUI({
     req(rv$mcmc_m)
     if (rv$mcmc_m == 1) return(NULL)
@@ -5541,10 +5317,7 @@ server <- function(input, output, session) {
     datatable(df, rownames = FALSE, class = "compact stripe hover",
               options = list(pageLength = 20, scrollX = TRUE, dom = "tip"))
   })
-  # ── Posterior summaries ────────────────────────────────────────────────────
-  # The first dropdown is semantic (gamma vs delta), and the second dropdown shows
-  # the detected Stan parameter family that will actually be plotted.
-  # When the semantic dropdown changes, the detected-family dropdown updates too.
+
   guess_postsumm_family <- function(smry, semantic = c("gamma", "delta", "other")) {
     semantic <- match.arg(semantic)
     families <- detect_mcmc_families(smry)
@@ -5731,10 +5504,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # ── Combined posterior summaries and evidence ──────────────────────────────
-  # Family categories used by the "Parameter type" selector. This keeps the
-  # semantic category and the Stan-family dropdown aligned: for example,
-  # "Other" will no longer show gamma_base or mu_ig.
   postev_family_category <- function(family) {
     family <- as.character(family)
     
@@ -5767,7 +5536,6 @@ server <- function(input, output, session) {
     cats <- vapply(families, postev_family_category, character(1))
     out <- families[cats == param_type]
     
-    # Put common Stan families first within each category.
     preferred_order <- switch(
       param_type,
       mean = c("gamma_base", "gamma_i", "mu_ig", "mu", "beta", "alpha"),
@@ -5974,8 +5742,6 @@ server <- function(input, output, session) {
     smry <- mcmc_active_summary()
     req(!is.null(smry), input$postev_family)
     
-    # Guard against stale input values when the semantic category changes.
-    # The selected family must belong to the currently selected parameter type.
     param_type <- active_postev_type(smry)
     if (is.na(param_type)) {
       return(compute_posterior_evidence(smry[0, , drop = FALSE]))
@@ -6163,6 +5929,6 @@ server <- function(input, output, session) {
     )
   })
   
-}  # end server
+} 
 
 shinyApp(ui, server)

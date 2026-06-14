@@ -1,5 +1,9 @@
 #' Internal helper functions for HarmonizeR Shiny app
+#'
+#' @name app_helpers
 #' @keywords internal
+#' @noRd
+NULL
 
 utils::globalVariables(c(".data", "bat", "measurement"))
 
